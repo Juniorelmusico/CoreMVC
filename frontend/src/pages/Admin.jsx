@@ -5,8 +5,21 @@ import "../styles/Admin.css";
 function Admin() {
     const [activeTab, setActiveTab] = useState("dashboard");
     const [dashboardData, setDashboardData] = useState(null);
+    const [modelStats, setModelStats] = useState(null);
     const [users, setUsers] = useState([]);
     const [files, setFiles] = useState([]);
+    
+    // Datos de los modelos CRUD
+    const [artists, setArtists] = useState([]);
+    const [genres, setGenres] = useState([]);
+    const [moods, setMoods] = useState([]);
+    const [tracks, setTracks] = useState([]);
+    const [analyses, setAnalyses] = useState([]);
+    
+    // Estado para formularios de edición
+    const [editItem, setEditItem] = useState(null);
+    const [newItem, setNewItem] = useState({});
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -23,12 +36,39 @@ function Admin() {
             if (activeTab === "dashboard") {
                 const response = await api.get("/api/admin/dashboard/");
                 setDashboardData(response.data);
-            } else if (activeTab === "users") {
+                
+                // También cargar estadísticas de modelos
+                const statsResponse = await api.get("/api/admin/model-stats/");
+                setModelStats(statsResponse.data);
+            } 
+            else if (activeTab === "users") {
                 const response = await api.get("/api/admin/users/");
                 setUsers(response.data);
-            } else if (activeTab === "files") {
+            } 
+            else if (activeTab === "files") {
                 const response = await api.get("/api/admin/files/");
                 setFiles(response.data);
+            }
+            // Cargar datos para modelos CRUD
+            else if (activeTab === "artists") {
+                const response = await api.get("/api/admin/crud/artists/");
+                setArtists(response.data);
+            }
+            else if (activeTab === "genres") {
+                const response = await api.get("/api/admin/crud/genres/");
+                setGenres(response.data);
+            }
+            else if (activeTab === "moods") {
+                const response = await api.get("/api/admin/crud/moods/");
+                setMoods(response.data);
+            }
+            else if (activeTab === "tracks") {
+                const response = await api.get("/api/admin/crud/tracks/");
+                setTracks(response.data);
+            }
+            else if (activeTab === "analyses") {
+                const response = await api.get("/api/admin/crud/analyses/");
+                setAnalyses(response.data);
             }
         } catch (err) {
             console.error("Error al cargar datos:", err);
@@ -90,7 +130,7 @@ function Admin() {
     };
 
     const renderDashboard = () => {
-        if (!dashboardData) return null;
+        if (!dashboardData || !modelStats) return null;
 
         return (
             <div className="dashboard-container">
@@ -114,6 +154,20 @@ function Admin() {
                         <div className="stat-content">
                             <h3>Almacenamiento</h3>
                             <div className="stat-value">{dashboardData.storage_used_mb} MB</div>
+                        </div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-icon">🎵</div>
+                        <div className="stat-content">
+                            <h3>Artistas</h3>
+                            <div className="stat-value">{modelStats.artists_count}</div>
+                        </div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-icon">🎧</div>
+                        <div className="stat-content">
+                            <h3>Pistas</h3>
+                            <div className="stat-value">{modelStats.tracks_count}</div>
                         </div>
                     </div>
                 </div>
@@ -142,6 +196,20 @@ function Admin() {
                                     <div className="item-details">
                                         <h4>{file.name}</h4>
                                         <p>Tamaño: {(file.size / 1024).toFixed(2)} KB</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="recent-section">
+                        <h3>Artistas recientes</h3>
+                        <div className="recent-list">
+                            {modelStats.recent_artists.map(artist => (
+                                <div className="recent-item" key={artist.id}>
+                                    <div className="item-icon">🎤</div>
+                                    <div className="item-details">
+                                        <h4>{artist.name}</h4>
+                                        <p>ID: {artist.id}</p>
                                     </div>
                                 </div>
                             ))}
@@ -222,6 +290,429 @@ function Admin() {
         );
     };
 
+    // Funciones CRUD para modelos
+    const handleCreate = async (model, data) => {
+        try {
+            await api.post(`/api/admin/crud/${model}/`, data);
+            loadTabData(); // Recargar datos después de crear
+            setNewItem({}); // Limpiar formulario
+        } catch (err) {
+            console.error(`Error al crear ${model}:`, err);
+            alert(`Error al crear: ${err.response?.data?.detail || err.message}`);
+        }
+    };
+
+    const handleUpdate = async (model, id, data) => {
+        try {
+            await api.put(`/api/admin/crud/${model}/${id}/`, data);
+            loadTabData(); // Recargar datos después de actualizar
+            setEditItem(null); // Cerrar formulario de edición
+        } catch (err) {
+            console.error(`Error al actualizar ${model}:`, err);
+            alert(`Error al actualizar: ${err.response?.data?.detail || err.message}`);
+        }
+    };
+
+    const handleDelete = async (model, id) => {
+        if (!window.confirm(`¿Estás seguro de que deseas eliminar este elemento?`)) {
+            return;
+        }
+        
+        try {
+            await api.delete(`/api/admin/crud/${model}/${id}/`);
+            loadTabData(); // Recargar datos después de eliminar
+        } catch (err) {
+            console.error(`Error al eliminar ${model}:`, err);
+            alert(`Error al eliminar: ${err.response?.data?.detail || err.message}`);
+        }
+    };
+
+    // Renderizado para CRUD de Artistas
+    const renderArtistsCRUD = () => {
+        return (
+            <div className="crud-container">
+                <h2>Gestión de Artistas</h2>
+                
+                {/* Formulario para crear un nuevo artista */}
+                <div className="crud-form">
+                    <h3>Añadir Nuevo Artista</h3>
+                    <div className="form-group">
+                        <label>Nombre:</label>
+                        <input 
+                            type="text" 
+                            value={newItem.name || ''} 
+                            onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                            placeholder="Nombre del artista"
+                        />
+                    </div>
+                    <button 
+                        className="crud-button create-button"
+                        onClick={() => handleCreate('artists', newItem)}
+                        disabled={!newItem.name}
+                    >
+                        Crear Artista
+                    </button>
+                </div>
+                
+                {/* Tabla de artistas */}
+                <div className="table-container">
+                    <table className="data-table crud-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Fecha de Creación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {artists.map(artist => (
+                                <tr key={artist.id}>
+                                    <td>{artist.id}</td>
+                                    <td>
+                                        {editItem && editItem.id === artist.id ? (
+                                            <input 
+                                                type="text" 
+                                                value={editItem.name} 
+                                                onChange={(e) => setEditItem({...editItem, name: e.target.value})} 
+                                            />
+                                        ) : (
+                                            artist.name
+                                        )}
+                                    </td>
+                                    <td>{formatDate(artist.created_at)}</td>
+                                    <td className="action-buttons">
+                                        {editItem && editItem.id === artist.id ? (
+                                            <>
+                                                <button 
+                                                    className="crud-button save-button"
+                                                    onClick={() => handleUpdate('artists', artist.id, editItem)}
+                                                >
+                                                    Guardar
+                                                </button>
+                                                <button 
+                                                    className="crud-button cancel-button"
+                                                    onClick={() => setEditItem(null)}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    className="crud-button edit-button"
+                                                    onClick={() => setEditItem({...artist})}
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button 
+                                                    className="crud-button delete-button"
+                                                    onClick={() => handleDelete('artists', artist.id)}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // Renderizado para CRUD de Géneros
+    const renderGenresCRUD = () => {
+        return (
+            <div className="crud-container">
+                <h2>Gestión de Géneros</h2>
+                
+                {/* Formulario para crear un nuevo género */}
+                <div className="crud-form">
+                    <h3>Añadir Nuevo Género</h3>
+                    <div className="form-group">
+                        <label>Nombre:</label>
+                        <input 
+                            type="text" 
+                            value={newItem.name || ''} 
+                            onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                            placeholder="Nombre del género"
+                        />
+                    </div>
+                    <button 
+                        className="crud-button create-button"
+                        onClick={() => handleCreate('genres', newItem)}
+                        disabled={!newItem.name}
+                    >
+                        Crear Género
+                    </button>
+                </div>
+                
+                {/* Tabla de géneros */}
+                <div className="table-container">
+                    <table className="data-table crud-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {genres.map(genre => (
+                                <tr key={genre.id}>
+                                    <td>{genre.id}</td>
+                                    <td>
+                                        {editItem && editItem.id === genre.id ? (
+                                            <input 
+                                                type="text" 
+                                                value={editItem.name} 
+                                                onChange={(e) => setEditItem({...editItem, name: e.target.value})} 
+                                            />
+                                        ) : (
+                                            genre.name
+                                        )}
+                                    </td>
+                                    <td className="action-buttons">
+                                        {editItem && editItem.id === genre.id ? (
+                                            <>
+                                                <button 
+                                                    className="crud-button save-button"
+                                                    onClick={() => handleUpdate('genres', genre.id, editItem)}
+                                                >
+                                                    Guardar
+                                                </button>
+                                                <button 
+                                                    className="crud-button cancel-button"
+                                                    onClick={() => setEditItem(null)}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    className="crud-button edit-button"
+                                                    onClick={() => setEditItem({...genre})}
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button 
+                                                    className="crud-button delete-button"
+                                                    onClick={() => handleDelete('genres', genre.id)}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // Renderizado para CRUD de Estados de Ánimo (Moods)
+    const renderMoodsCRUD = () => {
+        return (
+            <div className="crud-container">
+                <h2>Gestión de Estados de Ánimo</h2>
+                
+                {/* Formulario para crear un nuevo estado de ánimo */}
+                <div className="crud-form">
+                    <h3>Añadir Nuevo Estado de Ánimo</h3>
+                    <div className="form-group">
+                        <label>Nombre:</label>
+                        <input 
+                            type="text" 
+                            value={newItem.name || ''} 
+                            onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                            placeholder="Nombre del estado de ánimo"
+                        />
+                    </div>
+                    <button 
+                        className="crud-button create-button"
+                        onClick={() => handleCreate('moods', newItem)}
+                        disabled={!newItem.name}
+                    >
+                        Crear Estado de Ánimo
+                    </button>
+                </div>
+                
+                {/* Tabla de estados de ánimo */}
+                <div className="table-container">
+                    <table className="data-table crud-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {moods.map(mood => (
+                                <tr key={mood.id}>
+                                    <td>{mood.id}</td>
+                                    <td>
+                                        {editItem && editItem.id === mood.id ? (
+                                            <input 
+                                                type="text" 
+                                                value={editItem.name} 
+                                                onChange={(e) => setEditItem({...editItem, name: e.target.value})} 
+                                            />
+                                        ) : (
+                                            mood.name
+                                        )}
+                                    </td>
+                                    <td className="action-buttons">
+                                        {editItem && editItem.id === mood.id ? (
+                                            <>
+                                                <button 
+                                                    className="crud-button save-button"
+                                                    onClick={() => handleUpdate('moods', mood.id, editItem)}
+                                                >
+                                                    Guardar
+                                                </button>
+                                                <button 
+                                                    className="crud-button cancel-button"
+                                                    onClick={() => setEditItem(null)}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    className="crud-button edit-button"
+                                                    onClick={() => setEditItem({...mood})}
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button 
+                                                    className="crud-button delete-button"
+                                                    onClick={() => handleDelete('moods', mood.id)}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // Renderizado para CRUD de Pistas
+    const renderTracksCRUD = () => {
+        return (
+            <div className="crud-container">
+                <h2>Gestión de Pistas</h2>
+                
+                {/* Tabla de pistas */}
+                <div className="table-container">
+                    <table className="data-table crud-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Título</th>
+                                <th>Artista</th>
+                                <th>Género</th>
+                                <th>Estado</th>
+                                <th>BPM</th>
+                                <th>Duración</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tracks.map(track => (
+                                <tr key={track.id}>
+                                    <td>{track.id}</td>
+                                    <td>{track.title}</td>
+                                    <td>{artists.find(a => a.id === track.artist)?.name || track.artist}</td>
+                                    <td>{genres.find(g => g.id === track.genre)?.name || track.genre}</td>
+                                    <td>{moods.find(m => m.id === track.mood)?.name || track.mood}</td>
+                                    <td>{track.bpm}</td>
+                                    <td>{track.duration}s</td>
+                                    <td>{formatDate(track.created_at)}</td>
+                                    <td className="action-buttons">
+                                        <button 
+                                            className="crud-button view-button"
+                                            onClick={() => window.open(track.file, '_blank')}
+                                        >
+                                            Ver
+                                        </button>
+                                        <button 
+                                            className="crud-button delete-button"
+                                            onClick={() => handleDelete('tracks', track.id)}
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // Renderizado para CRUD de Análisis
+    const renderAnalysesCRUD = () => {
+        return (
+            <div className="crud-container">
+                <h2>Gestión de Análisis</h2>
+                
+                {/* Tabla de análisis */}
+                <div className="table-container">
+                    <table className="data-table crud-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Pista</th>
+                                <th>Fecha de Análisis</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {analyses.map(analysis => (
+                                <tr key={analysis.id}>
+                                    <td>{analysis.id}</td>
+                                    <td>{tracks.find(t => t.id === analysis.track)?.title || analysis.track}</td>
+                                    <td>{formatDate(analysis.analyzed_at)}</td>
+                                    <td className="action-buttons">
+                                        <button 
+                                            className="crud-button view-button"
+                                            onClick={() => alert(JSON.stringify(analysis.details, null, 2))}
+                                        >
+                                            Ver Detalles
+                                        </button>
+                                        <button 
+                                            className="crud-button delete-button"
+                                            onClick={() => handleDelete('analyses', analysis.id)}
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="admin-container">
             <div className="admin-header">
@@ -248,6 +739,40 @@ function Admin() {
                     >
                         Archivos
                     </button>
+
+                    <div className="sidebar-divider"></div>
+                    <div className="sidebar-title">Gestión de Contenido</div>
+                    
+                    <button 
+                        className={`sidebar-button ${activeTab === 'artists' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('artists')}
+                    >
+                        Artistas
+                    </button>
+                    <button 
+                        className={`sidebar-button ${activeTab === 'genres' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('genres')}
+                    >
+                        Géneros
+                    </button>
+                    <button 
+                        className={`sidebar-button ${activeTab === 'moods' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('moods')}
+                    >
+                        Estados de Ánimo
+                    </button>
+                    <button 
+                        className={`sidebar-button ${activeTab === 'tracks' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('tracks')}
+                    >
+                        Pistas
+                    </button>
+                    <button 
+                        className={`sidebar-button ${activeTab === 'analyses' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('analyses')}
+                    >
+                        Análisis
+                    </button>
                 </div>
                 
                 <div className="admin-main">
@@ -266,6 +791,11 @@ function Admin() {
                             {activeTab === 'dashboard' && renderDashboard()}
                             {activeTab === 'users' && renderUsers()}
                             {activeTab === 'files' && renderFiles()}
+                            {activeTab === 'artists' && renderArtistsCRUD()}
+                            {activeTab === 'genres' && renderGenresCRUD()}
+                            {activeTab === 'moods' && renderMoodsCRUD()}
+                            {activeTab === 'tracks' && renderTracksCRUD()}
+                            {activeTab === 'analyses' && renderAnalysesCRUD()}
                         </>
                     )}
                 </div>

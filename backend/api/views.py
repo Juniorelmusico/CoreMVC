@@ -142,3 +142,56 @@ def admin_dashboard(request):
         'recent_users': recent_users_data,
         'recent_files': recent_files_data
     })
+
+# Vistas CRUD para administradores
+class AdminArtistViewSet(viewsets.ModelViewSet):
+    queryset = Artist.objects.all()
+    serializer_class = ArtistSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminGenreViewSet(viewsets.ModelViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminMoodViewSet(viewsets.ModelViewSet):
+    queryset = Mood.objects.all()
+    serializer_class = MoodSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminTrackViewSet(viewsets.ModelViewSet):
+    queryset = Track.objects.all()
+    serializer_class = TrackSerializer
+    permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+class AdminAnalysisViewSet(viewsets.ModelViewSet):
+    queryset = Analysis.objects.all()
+    serializer_class = AnalysisSerializer
+    permission_classes = [IsAdminUser]
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_model_stats(request):
+    """
+    Vista para obtener estadísticas de los modelos
+    """
+    artists_count = Artist.objects.count()
+    genres_count = Genre.objects.count()
+    moods_count = Mood.objects.count()
+    tracks_count = Track.objects.count()
+    analyses_count = Analysis.objects.count()
+    
+    # Datos recientes
+    recent_artists = ArtistSerializer(Artist.objects.all().order_by('-created_at')[:5], many=True).data
+    recent_tracks = TrackSerializer(Track.objects.all().order_by('-created_at')[:5], many=True).data
+    
+    return Response({
+        'artists_count': artists_count,
+        'genres_count': genres_count,
+        'moods_count': moods_count,
+        'tracks_count': tracks_count,
+        'analyses_count': analyses_count,
+        'recent_artists': recent_artists,
+        'recent_tracks': recent_tracks
+    })

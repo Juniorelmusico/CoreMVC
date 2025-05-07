@@ -1,68 +1,305 @@
-/* Container for the whole page */
-div {
+/* Estilo general de la app */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
   font-family: Arial, sans-serif;
 }
 
-/* Styles for the notes section */
-.notes-section {
-  margin-bottom: 2rem;
+/* Estilos para las pestañas */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
 }
 
-.notes-section h2 {
-  color: #333;
-  font-size: 24px;
-}
-
-/* Styles for individual notes - assuming your Note component has some container element */
-.note {
-  background-color: #f9f9f9;
-  border-left: 5px solid #007bff;
-  margin: 10px 0;
-  padding: 10px 15px;
-  border-radius: 5px;
-}
-
-/* Styles for the form section */
-form {
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 500px;
-  margin: auto;
-}
-
-form h2 {
-  color: #333;
-  font-size: 24px;
-  margin-bottom: 20px;
-}
-
-form label {
-  font-weight: bold;
-  margin-top: 10px;
-}
-
-form input,
-form textarea {
-  width: 100%;
-  padding: 8px;
-  margin: 8px 0 16px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-
-form input[type="submit"] {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 20px;
+.tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
   border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+  color: #4a5568;
+}
+
+.tab.active {
+  color: #4299e1;
+  border-bottom: 2px solid #4299e1;
+}
+
+/* Estilos para la pantalla de carga de archivos */
+.upload-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.upload-title, .files-title {
+  text-align: center;
+  color: #333;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+}
+
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Estilos para el input de archivo */
+.file-input-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.custom-file-upload {
+  display: inline-block;
+  background-color: #4a90e2;
+  color: white;
+  padding: 12px 24px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+  text-align: center;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-form input[type="submit"]:hover {
-  background-color: #0056b3;
+.custom-file-upload:hover {
+  background-color: #3a7cce;
+}
+
+.file-input {
+  display: none;
+}
+
+/* Estilos para la vista previa y la información del archivo */
+.preview-container {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.file-preview {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.file-info {
+  background-color: #f1f5f9;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.file-info p {
+  margin: 0.5rem 0;
+  color: #555;
+}
+
+/* Estilos para botones */
+.upload-button, .upload-button-alt {
+  background-color: #38b2ac;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  align-self: center;
+}
+
+.upload-button:hover:not(:disabled), .upload-button-alt:hover {
+  background-color: #319795;
+}
+
+.upload-button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.message {
+  text-align: center;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  color: #2d3748;
+  background-color: #e6fffa;
+  border-left: 4px solid #38b2ac;
+}
+
+/* Estilos para la vista de archivos */
+.files-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #718096;
+  font-size: 1.1rem;
+}
+
+.no-files {
+  text-align: center;
+  padding: 3rem 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.no-files p {
+  margin-bottom: 1.5rem;
+  color: #718096;
+  font-size: 1.1rem;
+}
+
+.files-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.file-card {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 1.25rem;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #718096;
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+.file-date {
+  color: #a0aec0;
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.download-button, .view-button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-decoration: none;
+  text-align: center;
+  flex: 1;
+  transition: background-color 0.2s ease;
+}
+
+.download-button {
+  background-color: #4299e1;
+  color: white;
+}
+
+.download-button:hover {
+  background-color: #3182ce;
+}
+
+.view-button {
+  background-color: #f1f5f9;
+  color: #4a5568;
+}
+
+.view-button:hover {
+  background-color: #e2e8f0;
+}
+
+/* Estilos para el enlace al panel de administración */
+.admin-link {
+  margin-left: auto;
+  background-color: #4a5568;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-link:hover {
+  background-color: #2d3748;
+}
+
+@media (max-width: 768px) {
+  .tabs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .admin-link {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: center;
+  }
 }

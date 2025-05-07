@@ -76,6 +76,13 @@ function Home() {
             return;
         }
 
+        // Validación del lado del cliente para archivos MP3 y WAV
+        const fileName = file.name.toLowerCase();
+        if (!fileName.endsWith('.mp3') && !fileName.endsWith('.wav')) {
+            setMessage("Error: Solo se permiten archivos MP3 y WAV");
+            return;
+        }
+
         setUploading(true);
         setMessage("Subiendo archivo...");
 
@@ -104,7 +111,9 @@ function Home() {
             setUploading(false);
         } catch (error) {
             console.error("Error uploading file:", error);
-            setMessage("Error al subir el archivo: " + (error.response?.data?.error || error.message));
+            // Mostrar el mensaje de error específico del backend si está disponible
+            const errorMessage = error.response?.data?.error || "Error al subir el archivo";
+            setMessage(errorMessage);
             setUploading(false);
         }
     };
@@ -204,7 +213,11 @@ function Home() {
                             {uploading ? "Subiendo..." : "Subir Archivo"}
                         </button>
                         
-                        {message && <p className="message">{message}</p>}
+                        {message && (
+                            <p className={`message ${message.includes("Error") ? "error-message" : ""}`}>
+                                {message}
+                            </p>
+                        )}
                     </form>
                 </div>
             ) : (

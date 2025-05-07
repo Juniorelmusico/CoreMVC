@@ -151,6 +151,12 @@
   border-left: 4px solid #38b2ac;
 }
 
+.error-message {
+  background-color: #fff5f5;
+  border-left: 4px solid #f56565;
+  color: #c53030;
+}
+
 /* Estilos para la vista de archivos */
 .files-container {
   max-width: 900px;

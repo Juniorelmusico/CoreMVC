@@ -613,9 +613,167 @@ function Admin() {
 
     // Renderizado para CRUD de Pistas
     const renderTracksCRUD = () => {
+        const [newTrack, setNewTrack] = useState({
+            title: '',
+            artist: '',
+            genre: '',
+            mood: '',
+            bpm: '',
+            duration: '',
+            file: null
+        });
+        const [uploadError, setUploadError] = useState('');
+
+        const handleTrackFileChange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Validación del lado del cliente para archivos MP3 y WAV
+                const fileName = file.name.toLowerCase();
+                if (!fileName.endsWith('.mp3') && !fileName.endsWith('.wav')) {
+                    setUploadError("Error: Solo se permiten archivos MP3 y WAV");
+                    return;
+                }
+                setUploadError('');
+                setNewTrack({...newTrack, file: file});
+            }
+        };
+
+        const handleCreateTrack = async () => {
+            if (!newTrack.title || !newTrack.artist || !newTrack.file) {
+                setUploadError("Los campos Título, Artista y Archivo son obligatorios");
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('title', newTrack.title);
+                formData.append('artist', newTrack.artist);
+                if (newTrack.genre) formData.append('genre', newTrack.genre);
+                if (newTrack.mood) formData.append('mood', newTrack.mood);
+                formData.append('bpm', newTrack.bpm || 0);
+                formData.append('duration', newTrack.duration || 0);
+                formData.append('file', newTrack.file);
+
+                await api.post('/api/admin/crud/tracks/', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+                
+                // Limpiar formulario y recargar datos
+                setNewTrack({
+                    title: '',
+                    artist: '',
+                    genre: '',
+                    mood: '',
+                    bpm: '',
+                    duration: '',
+                    file: null
+                });
+                setUploadError('');
+                loadTabData();
+            } catch (error) {
+                console.error('Error creating track:', error);
+                const errorMessage = error.response?.data?.error || "Error al crear la pista";
+                setUploadError(errorMessage);
+            }
+        };
+
         return (
             <div className="crud-container">
                 <h2>Gestión de Pistas</h2>
+                
+                {/* Formulario para crear una nueva pista */}
+                <div className="crud-form">
+                    <h3>Añadir Nueva Pista</h3>
+                    <div className="form-grid">
+                        <div className="form-group">
+                            <label>Título: *</label>
+                            <input 
+                                type="text" 
+                                value={newTrack.title} 
+                                onChange={(e) => setNewTrack({...newTrack, title: e.target.value})}
+                                placeholder="Título de la pista"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Artista: *</label>
+                            <select 
+                                value={newTrack.artist} 
+                                onChange={(e) => setNewTrack({...newTrack, artist: e.target.value})}
+                            >
+                                <option value="">Seleccione un artista</option>
+                                {artists.map(artist => (
+                                    <option key={artist.id} value={artist.id}>{artist.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Género:</label>
+                            <select 
+                                value={newTrack.genre} 
+                                onChange={(e) => setNewTrack({...newTrack, genre: e.target.value})}
+                            >
+                                <option value="">Seleccione un género</option>
+                                {genres.map(genre => (
+                                    <option key={genre.id} value={genre.id}>{genre.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Estado de ánimo:</label>
+                            <select 
+                                value={newTrack.mood} 
+                                onChange={(e) => setNewTrack({...newTrack, mood: e.target.value})}
+                            >
+                                <option value="">Seleccione un estado</option>
+                                {moods.map(mood => (
+                                    <option key={mood.id} value={mood.id}>{mood.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>BPM:</label>
+                            <input 
+                                type="number" 
+                                value={newTrack.bpm} 
+                                onChange={(e) => setNewTrack({...newTrack, bpm: e.target.value})}
+                                placeholder="Beats por minuto"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Duración (segundos):</label>
+                            <input 
+                                type="number" 
+                                value={newTrack.duration} 
+                                onChange={(e) => setNewTrack({...newTrack, duration: e.target.value})}
+                                placeholder="Duración en segundos"
+                            />
+                        </div>
+                        <div className="form-group file-input-group">
+                            <label>Archivo: * (Solo MP3 o WAV)</label>
+                            <input 
+                                type="file" 
+                                onChange={handleTrackFileChange}
+                                accept=".mp3,.wav"
+                            />
+                        </div>
+                    </div>
+                    
+                    {uploadError && (
+                        <div className="error-message form-error">
+                            {uploadError}
+                        </div>
+                    )}
+                    
+                    <button 
+                        className="crud-button create-button"
+                        onClick={handleCreateTrack}
+                        disabled={!newTrack.title || !newTrack.artist || !newTrack.file}
+                    >
+                        Crear Pista
+                    </button>
+                </div>
                 
                 {/* Tabla de pistas */}
                 <div className="table-container">

@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from .models import Note
 from .models import Artist, Genre, Mood, Track, Analysis, UploadedFile
 from .serializers import ArtistSerializer, GenreSerializer, MoodSerializer, TrackSerializer, AnalysisSerializer, UploadedFileSerializer
+import os
 
 
 class NoteListCreate(generics.ListCreateAPIView):
@@ -72,6 +73,16 @@ class FileUploadView(generics.CreateAPIView):
         
         if not file_obj:
             return Response({"error": "No file was provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validación de formato de archivo
+        filename, extension = os.path.splitext(file_obj.name)
+        extension = extension.lower()
+        
+        if extension not in ['.mp3', '.wav']:
+            return Response(
+                {"error": "Formato de archivo no válido. Solo se aceptan archivos MP3 y WAV."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Create file data
         file_data = {
@@ -164,6 +175,22 @@ class AdminTrackViewSet(viewsets.ModelViewSet):
     serializer_class = TrackSerializer
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
+    
+    def create(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        
+        if file_obj:
+            # Validación de formato de archivo
+            filename, extension = os.path.splitext(file_obj.name)
+            extension = extension.lower()
+            
+            if extension not in ['.mp3', '.wav']:
+                return Response(
+                    {"error": "Formato de archivo no válido. Solo se aceptan archivos MP3 y WAV."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return super().create(request, *args, **kwargs)
 
 class AdminAnalysisViewSet(viewsets.ModelViewSet):
     queryset = Analysis.objects.all()

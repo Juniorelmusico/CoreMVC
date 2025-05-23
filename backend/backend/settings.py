@@ -178,3 +178,11 @@ CORS_ALLOWS_CREDENTIALS = True
 
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://backend-production-71f7.up.railway.app/',  # tu dominio real
+]
+
+ALLOWED_HOSTS = [
+    'backend-production-71f7.up.railway.app',
+]

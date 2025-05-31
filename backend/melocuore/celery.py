@@ -7,9 +7,17 @@ app = Celery('melocuore')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
-# Configure Celery to use Redis as message broker
-app.conf.broker_url = 'redis://localhost:6379/0'
-app.conf.result_backend = 'redis://localhost:6379/0'
+# Configuración para modo desarrollo (sin Redis)
+app.conf.update(
+    task_always_eager=True,  # Ejecutar tareas síncronamente
+    task_eager_propagates=True,  # Propagar errores
+    broker_url=None,  # No usar broker
+    result_backend=None,  # No usar backend
+)
+
+# Configuración comentada para cuando se use Redis en producción
+# app.conf.broker_url = 'redis://localhost:6379/0'
+# app.conf.result_backend = 'redis://localhost:6379/0'
 
 # Configure task settings
 app.conf.task_serializer = 'json'

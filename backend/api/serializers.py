@@ -97,10 +97,10 @@ class TrackSerializer(serializers.ModelSerializer):
         model = Track
         fields = (
             'id', 'title', 'artist', 'file', 'duration', 'bpm',
-            'genre', 'mood', 'uploaded_at', 'analysis_status',
-            'analysis_error', 'analysis'
+            'genre', 'mood', 'uploaded_at', 'fingerprint_status',
+            'fingerprint_error', 'analysis', 'fingerprints_count'
         )
-        read_only_fields = ('duration', 'bpm', 'genre', 'mood', 'analysis_status', 'analysis_error')
+        read_only_fields = ('duration', 'bpm', 'genre', 'mood', 'fingerprint_status', 'fingerprint_error', 'fingerprints_count')
 
 
 class UploadedFileSerializer(serializers.ModelSerializer):

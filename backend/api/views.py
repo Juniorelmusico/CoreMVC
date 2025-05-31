@@ -6,13 +6,15 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.models import User
 from .serializers import UserSerializer, NoteSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile
+from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile, Recognition
 from .serializers import ArtistSerializer, GenreSerializer, MoodSerializer, TrackSerializer, AnalysisSerializer, UploadedFileSerializer, TrackUploadSerializer, MusicFileSerializer
-from .tasks import analyze_track
+from .tasks import fingerprint_track, recognize_audio_file, batch_fingerprint_tracks
 from django.core.files.storage import default_storage
-from .services import analyze_music_file
 import os
 from rest_framework.generics import RetrieveAPIView
+import time
+from django.urls import reverse
+from rest_framework.routers import DefaultRouter
 
 
 class NoteListCreate(generics.ListCreateAPIView):
@@ -51,10 +53,17 @@ class TrackViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Si es superuser, puede ver todos los tracks
+        if self.request.user.is_superuser:
+            return Track.objects.all()
+        # Si es usuario normal, solo sus tracks
         return Track.objects.filter(artist__user=self.request.user)
 
     @action(detail=False, methods=['post'])
     def upload(self, request):
+        """
+        Subir track y generar fingerprint con Dejavu
+        """
         serializer = TrackUploadSerializer(data=request.data)
         if serializer.is_valid():
             # Get or create artist
@@ -68,11 +77,13 @@ class TrackViewSet(viewsets.ModelViewSet):
                 title=serializer.validated_data['title'],
                 file=serializer.validated_data['file'],
                 artist=artist,
-                analysis_status='pending'
+                fingerprint_status='pending',
+                is_reference_track=True,  # Tracks subidos por usuarios son de referencia
+                reference_source='user_upload'
             )
             
-            # Start analysis task
-            analyze_track.delay(track.id)
+            # Start fingerprinting task
+            # fingerprint_track.delay(track.id)  # Comentado temporalmente - requiere Celery/Redis
             
             return Response(
                 TrackSerializer(track).data,
@@ -82,13 +93,83 @@ class TrackViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def analysis(self, request, pk=None):
+        """
+        Obtener análisis de un track
+        """
         track = self.get_object()
-        if track.analysis:
+        
+        # Si el track tiene análisis, devolverlo
+        if hasattr(track, 'analysis'):
             return Response(AnalysisSerializer(track.analysis).data)
-        return Response(
-            {'status': track.analysis_status, 'error': track.analysis_error},
-            status=status.HTTP_200_OK
-        )
+        
+        # Si no hay análisis, devolver información básica del track
+        return Response({
+            'track_id': track.id,
+            'track_title': track.title,
+            'artist_name': track.artist.name if track.artist else 'Unknown Artist',
+            'fingerprint_status': track.fingerprint_status,
+            'fingerprint_error': track.fingerprint_error,
+            'fingerprints_count': track.fingerprints_count,
+            'message': 'No detailed analysis available yet'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'])
+    def test_endpoint(self, request, pk=None):
+        """
+        Endpoint de prueba para verificar que los actions funcionen
+        """
+        track = self.get_object()
+        return Response({
+            'message': 'Test endpoint working',
+            'track_id': track.id,
+            'track_title': track.title
+        })
+
+    @action(detail=True, methods=['get'])
+    def simple_test(self, request, pk=None):
+        """
+        Test aún más simple
+        """
+        return Response({
+            'message': 'Simple test working',
+            'track_pk': pk
+        })
+
+    @action(detail=True, methods=['post'])
+    def regenerate_fingerprint(self, request, pk=None):
+        """
+        Regenerar fingerprint de un track
+        """
+        track = self.get_object()
+        track.fingerprint_status = 'pending'
+        track.fingerprint_error = None
+        track.save()
+        
+        fingerprint_track.delay(track.id)
+        
+        return Response({'message': 'Regeneración de fingerprint iniciada'})
+
+    @action(detail=False, methods=['post'])
+    def batch_fingerprint(self, request):
+        """
+        Generar fingerprints en batch para múltiples tracks
+        """
+        track_ids = request.data.get('track_ids', [])
+        if not track_ids:
+            return Response({'error': 'No track IDs provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verificar que todos los tracks pertenecen al usuario
+        user_tracks = Track.objects.filter(
+            id__in=track_ids, 
+            artist__user=request.user
+        ).values_list('id', flat=True)
+        
+        if len(user_tracks) != len(track_ids):
+            return Response({'error': 'Some tracks do not belong to user'}, status=status.HTTP_403_FORBIDDEN)
+        
+        batch_fingerprint_tracks.delay(list(user_tracks))
+        
+        return Response({'message': f'Batch fingerprinting started for {len(user_tracks)} tracks'})
 
 
 class ArtistViewSet(viewsets.ModelViewSet):
@@ -118,6 +199,9 @@ class AnalysisViewSet(viewsets.ModelViewSet):
 
 
 class FileUploadView(generics.CreateAPIView):
+    """
+    Vista para subir archivos de audio para reconocimiento (tipo Shazam)
+    """
     serializer_class = UploadedFileSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -148,8 +232,26 @@ class FileUploadView(generics.CreateAPIView):
         
         serializer = self.get_serializer(data=file_data)
         if serializer.is_valid():
-            serializer.save(uploaded_by=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            try:
+                uploaded_file = serializer.save(
+                    uploaded_by=request.user,
+                    file_purpose='recognition',
+                    processing_status='pending'
+                )
+                
+                # Para debugging: no usar Celery por ahora
+                # recognize_audio_file.delay(uploaded_file.id)
+                
+                # En su lugar, cambiar el estado a procesando sin ejecutar la tarea
+                uploaded_file.processing_status = 'processing'
+                uploaded_file.save()
+                
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response(
+                    {"error": f"Error saving file: {str(e)}"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -160,6 +262,171 @@ class FileListView(generics.ListAPIView):
     def get_queryset(self):
         # Obtener solo los archivos subidos por el usuario actual
         return UploadedFile.objects.filter(uploaded_by=self.request.user).order_by('-uploaded_at')
+
+
+class RecognitionListView(generics.ListAPIView):
+    """
+    Vista para listar reconocimientos de audio del usuario
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Recognition.objects.filter(
+            uploaded_file__uploaded_by=self.request.user
+        ).order_by('-created_at')
+    
+    def list(self, request, *args, **kwargs):
+        recognitions = self.get_queryset()
+        
+        data = []
+        for recognition in recognitions:
+            recognition_data = {
+                'id': recognition.id,
+                'uploaded_file': {
+                    'id': recognition.uploaded_file.id,
+                    'name': recognition.uploaded_file.name,
+                    'uploaded_at': recognition.uploaded_file.uploaded_at
+                },
+                'recognition_status': recognition.recognition_status,
+                'confidence': recognition.confidence,
+                'offset_seconds': recognition.offset_seconds,
+                'processing_time': recognition.processing_time,
+                'created_at': recognition.created_at,
+                'recognized_track': None
+            }
+            
+            if recognition.recognized_track:
+                recognition_data['recognized_track'] = {
+                    'id': recognition.recognized_track.id,
+                    'title': recognition.recognized_track.title,
+                    'artist': recognition.recognized_track.artist.name,
+                    'genre': recognition.recognized_track.genre.name if recognition.recognized_track.genre else None,
+                    'mood': recognition.recognized_track.mood.name if recognition.recognized_track.mood else None,
+                    'duration': recognition.recognized_track.duration,
+                    'bpm': recognition.recognized_track.bpm
+                }
+            
+            data.append(recognition_data)
+        
+        return Response(data)
+
+
+class RecognitionDetailView(generics.RetrieveAPIView):
+    """
+    Vista para obtener detalles de un reconocimiento específico
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        recognition_id = self.kwargs['pk']
+        return get_object_or_404(
+            Recognition,
+            id=recognition_id,
+            uploaded_file__uploaded_by=self.request.user
+        )
+    
+    def retrieve(self, request, *args, **kwargs):
+        recognition = self.get_object()
+        
+        data = {
+            'id': recognition.id,
+            'recognition_status': recognition.recognition_status,
+            'confidence': recognition.confidence,
+            'offset_seconds': recognition.offset_seconds,
+            'fingerprinted_confidence': recognition.fingerprinted_confidence,
+            'processing_time': recognition.processing_time,
+            'recognition_error': recognition.recognition_error,
+            'created_at': recognition.created_at,
+            'dejavu_result': recognition.dejavu_result,
+            'uploaded_file': {
+                'id': recognition.uploaded_file.id,
+                'name': recognition.uploaded_file.name,
+                'size': recognition.uploaded_file.size,
+                'uploaded_at': recognition.uploaded_file.uploaded_at
+            },
+            'recognized_track': None
+        }
+        
+        if recognition.recognized_track:
+            track = recognition.recognized_track
+            data['recognized_track'] = {
+                'id': track.id,
+                'title': track.title,
+                'artist': {
+                    'id': track.artist.id,
+                    'name': track.artist.name,
+                    'description': track.artist.description,
+                    'country': track.artist.country
+                },
+                'genre': {
+                    'id': track.genre.id,
+                    'name': track.genre.name,
+                    'description': track.genre.description
+                } if track.genre else None,
+                'mood': {
+                    'id': track.mood.id,
+                    'name': track.mood.name,
+                    'description': track.mood.description,
+                    'valence_score': track.mood.valence_score
+                } if track.mood else None,
+                'duration': track.duration,
+                'bpm': track.bpm,
+                'uploaded_at': track.uploaded_at,
+                'fingerprints_count': track.fingerprints_count
+            }
+        
+        return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recognition_status(request, file_id):
+    """
+    Endpoint para polling del estado de reconocimiento
+    """
+    try:
+        uploaded_file = UploadedFile.objects.get(
+            id=file_id,
+            uploaded_by=request.user
+        )
+        
+        # Buscar el reconocimiento más reciente para este archivo
+        recognition = Recognition.objects.filter(
+            uploaded_file=uploaded_file
+        ).order_by('-created_at').first()
+        
+        if not recognition:
+            return Response({
+                'status': 'processing',
+                'message': 'Recognition not started yet'
+            })
+        
+        response_data = {
+            'status': recognition.recognition_status,
+            'processing_time': recognition.processing_time,
+            'confidence': recognition.confidence,
+            'recognition_id': recognition.id
+        }
+        
+        if recognition.recognized_track:
+            response_data['track'] = {
+                'id': recognition.recognized_track.id,
+                'title': recognition.recognized_track.title,
+                'artist': recognition.recognized_track.artist.name,
+                'genre': recognition.recognized_track.genre.name if recognition.recognized_track.genre else None,
+                'mood': recognition.recognized_track.mood.name if recognition.recognized_track.mood else None,
+            }
+        
+        if recognition.recognition_error:
+            response_data['error'] = recognition.recognition_error
+        
+        return Response(response_data)
+        
+    except UploadedFile.DoesNotExist:
+        return Response(
+            {'error': 'File not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 # Vistas para administradores
@@ -195,6 +462,17 @@ def admin_dashboard(request):
     """
     users_count = User.objects.count()
     files_count = UploadedFile.objects.count()
+    tracks_count = Track.objects.count()
+    recognitions_count = Recognition.objects.count()
+    
+    # Estadísticas de fingerprinting
+    fingerprinted_tracks = Track.objects.filter(fingerprint_status='completed').count()
+    pending_fingerprints = Track.objects.filter(fingerprint_status='pending').count()
+    
+    # Estadísticas de reconocimiento
+    successful_recognitions = Recognition.objects.filter(recognition_status='found').count()
+    failed_recognitions = Recognition.objects.filter(recognition_status='not_found').count()
+    
     total_file_size = UploadedFile.objects.all().values_list('size', flat=True)
     total_size_mb = sum(total_file_size) / (1024 * 1024) if total_file_size else 0
     
@@ -209,6 +487,12 @@ def admin_dashboard(request):
     return Response({
         'users_count': users_count,
         'files_count': files_count,
+        'tracks_count': tracks_count,
+        'recognitions_count': recognitions_count,
+        'fingerprinted_tracks': fingerprinted_tracks,
+        'pending_fingerprints': pending_fingerprints,
+        'successful_recognitions': successful_recognitions,
+        'failed_recognitions': failed_recognitions,
         'storage_used_mb': round(total_size_mb, 2),
         'recent_users': recent_users_data,
         'recent_files': recent_files_data
@@ -259,7 +543,29 @@ class AdminTrackViewSet(viewsets.ModelViewSet):
                     {"error": "Formato de archivo no válido. Solo se aceptan archivos MP3 y WAV."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        return super().create(request, *args, **kwargs)
+        
+        response = super().create(request, *args, **kwargs)
+        
+        # Si se creó exitosamente, iniciar fingerprinting
+        if response.status_code == status.HTTP_201_CREATED:
+            track_id = response.data.get('id')
+            if track_id:
+                fingerprint_track.delay(track_id)
+        
+        return response
+
+    @action(detail=False, methods=['post'])
+    def batch_fingerprint(self, request):
+        """
+        Generar fingerprints en batch para tracks seleccionados
+        """
+        track_ids = request.data.get('track_ids', [])
+        if not track_ids:
+            return Response({'error': 'No track IDs provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        batch_fingerprint_tracks.delay(track_ids)
+        
+        return Response({'message': f'Batch fingerprinting started for {len(track_ids)} tracks'})
 
 
 class AdminAnalysisViewSet(viewsets.ModelViewSet):
@@ -295,15 +601,10 @@ def admin_model_stats(request):
     })
 
 
-class TrackAnalysisView(RetrieveAPIView):
-    serializer_class = AnalysisSerializer
-
-    def get_object(self):
-        track_id = self.kwargs['pk']
-        return Analysis.objects.get(track__id=track_id)
-
-
 class MusicFileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet simplificado para compatibilidad
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = MusicFileSerializer
     
@@ -311,45 +612,72 @@ class MusicFileViewSet(viewsets.ModelViewSet):
         return MusicFile.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
-        # Save the file first
         music_file = serializer.save(user=self.request.user)
-        
-        try:
-            # Get the file path
-            file_path = music_file.file.path
-            
-            # Analyze the music file
-            metadata = analyze_music_file(file_path)
-            
-            # Update the model with the metadata
-            music_file.duration = metadata['duration']
-            music_file.tempo = metadata['tempo']
-            music_file.key = metadata['key']
-            music_file.loudness = metadata['loudness']
-            music_file.save()
-            
-        except Exception as e:
-            # If analysis fails, delete the file and raise the error
-            music_file.delete()
-            raise Exception(f"Error processing music file: {str(e)}")
+        return music_file
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def test_auth(request):
+    """
+    Endpoint de prueba para verificar autenticación
+    """
+    return Response({
+        'authenticated': True,
+        'user': request.user.username,
+        'user_id': request.user.id,
+        'is_superuser': request.user.is_superuser,
+        'message': 'Authentication working correctly',
+        'auth_header': request.META.get('HTTP_AUTHORIZATION', 'No Authorization header')
+    })
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def test_no_auth(request):
+    """
+    Endpoint de prueba sin autenticación requerida
+    """
+    return Response({
+        'message': 'Server working correctly',
+        'has_auth_header': 'HTTP_AUTHORIZATION' in request.META,
+        'auth_header': request.META.get('HTTP_AUTHORIZATION', 'No Authorization header')[:50] + '...' if request.META.get('HTTP_AUTHORIZATION') else 'None'
+    })
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_routes(request):
+    """
+    Endpoint de diagnóstico para mostrar rutas registradas
+    """
+    # Crear router temporal para mostrar rutas
+    router = DefaultRouter()
+    router.register(r'tracks', TrackViewSet, basename='track')
     
-    @action(detail=True, methods=['get'])
-    def analyze(self, request, pk=None):
-        music_file = self.get_object()
-        
-        try:
-            metadata = analyze_music_file(music_file.file.path)
-            
-            # Update the model with new analysis
-            music_file.duration = metadata['duration']
-            music_file.tempo = metadata['tempo']
-            music_file.key = metadata['key']
-            music_file.loudness = metadata['loudness']
-            music_file.save()
-            
-            return Response(self.get_serializer(music_file).data)
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    # Obtener todas las rutas del TrackViewSet
+    track_routes = []
+    for pattern in router.urls:
+        track_routes.append({
+            'pattern': str(pattern.pattern),
+            'name': pattern.name,
+            'callback': str(pattern.callback)
+        })
+    
+    # Información adicional sobre los métodos del TrackViewSet
+    viewset_methods = []
+    for attr_name in dir(TrackViewSet):
+        if not attr_name.startswith('_'):
+            attr = getattr(TrackViewSet, attr_name)
+            if hasattr(attr, 'mapping'):
+                viewset_methods.append({
+                    'method': attr_name,
+                    'mapping': attr.mapping
+                })
+    
+    return Response({
+        'message': 'Diagnóstico de rutas del TrackViewSet',
+        'registered_routes': track_routes,
+        'viewset_methods_with_actions': viewset_methods,
+        'total_routes': len(track_routes),
+        'analysis_method_exists': hasattr(TrackViewSet, 'analysis'),
+        'analysis_has_action_decorator': hasattr(getattr(TrackViewSet, 'analysis', None), 'mapping')
+    })

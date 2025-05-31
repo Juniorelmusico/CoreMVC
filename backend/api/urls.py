@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-from .views import TrackAnalysisView, MusicFileViewSet
+from .views import MusicFileViewSet, RecognitionListView, RecognitionDetailView, recognition_status, test_auth, test_no_auth
 
 # Configuración del router para las vistas basadas en ViewSets
 router = DefaultRouter()
@@ -23,8 +23,17 @@ admin_router.register(r'analyses', views.AdminAnalysisViewSet, basename='admin-a
 urlpatterns = [
     path("notes/", views.NoteListCreate.as_view(), name="note-list"),
     path("notes/delete/<int:pk>/", views.NoteDelete.as_view(), name="delete-note"),
+    
+    # Endpoints de archivos y reconocimiento
     path("upload/", views.FileUploadView.as_view(), name="file-upload"),
     path("files/", views.FileListView.as_view(), name="file-list"),
+    path("recognitions/", RecognitionListView.as_view(), name="recognition-list"),
+    path("recognitions/<int:pk>/", RecognitionDetailView.as_view(), name="recognition-detail"),
+    path("recognition-status/<int:file_id>/", recognition_status, name="recognition-status"),
+    
+    # Endpoints de prueba
+    path("test-auth/", test_auth, name="test-auth"),
+    path("test-no-auth/", test_no_auth, name="test-no-auth"),
     
     # URLs para administradores
     path("admin/dashboard/", views.admin_dashboard, name="admin-dashboard"),
@@ -37,6 +46,6 @@ urlpatterns = [
     # Incluir router de administración
     path("admin/crud/", include(admin_router.urls)),
     
-    path("api/", include(router.urls)),  # Incluye las rutas generadas por el router
-    path('api/tracks/<int:pk>/analysis/', TrackAnalysisView.as_view(), name='track-analysis'),
+    # API principal
+    path("", include(router.urls)),  # Incluye las rutas generadas por el router
 ]

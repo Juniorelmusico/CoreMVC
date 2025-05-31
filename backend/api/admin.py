@@ -18,11 +18,11 @@ class MoodAdmin(admin.ModelAdmin):
 
 @admin.register(Track)
 class TrackAdmin(admin.ModelAdmin):
-    list_display = ('title', 'artist', 'genre', 'mood', 'bpm', 'duration', 'created_at')
+    list_display = ('title', 'artist', 'genre', 'mood', 'bpm', 'duration', 'uploaded_at')
     search_fields = ('title', 'artist__name')
-    list_filter = ('genre', 'mood', 'created_at')
+    list_filter = ('genre', 'mood', 'uploaded_at')
 
 @admin.register(Analysis)
 class AnalysisAdmin(admin.ModelAdmin):
-    list_display = ('track', 'analyzed_at')
+    list_display = ('track', 'created_at')
     search_fields = ('track__title',)

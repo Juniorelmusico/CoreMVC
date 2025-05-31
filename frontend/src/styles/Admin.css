@@ -1,62 +1,63 @@
 /* Estilos para el panel de administración */
+body, .admin-container {
+  background: #10182a;
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
 .admin-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0;
-  font-family: Arial, sans-serif;
 }
 
 .admin-header {
-  background-color: #1a202c;
-  color: white;
-  padding: 1.5rem;
+  background: #232b43;
+  padding: 2rem 0 1.2rem 0;
   text-align: center;
-  border-radius: 8px 8px 0 0;
-  margin-bottom: 1px;
+  border-bottom: 2.5px solid #19e2c4;
 }
 
 .admin-header h1 {
-  margin: 0;
-  font-size: 1.8rem;
+  color: #19e2c4;
+  font-size: 2.3rem;
+  letter-spacing: 1px;
 }
 
 .admin-content {
   display: flex;
-  min-height: calc(100vh - 150px);
-  background-color: #f8fafc;
-  border-radius: 0 0 8px 8px;
-  overflow: hidden;
+  min-height: 80vh;
 }
 
 /* Sidebar */
 .admin-sidebar {
-  width: 220px;
-  background-color: #2d3748;
-  padding: 1.5rem 0;
+  background: linear-gradient(135deg, #232b43 60%, #2e3a5a 100%);
+  min-width: 220px;
+  padding: 2rem 1rem 2rem 1.5rem;
+  border-radius: 0 18px 18px 0;
+  box-shadow: 2px 0 16px rgba(25,226,196,0.07);
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .sidebar-button {
   background: none;
   border: none;
-  color: #cbd5e0;
-  padding: 0.75rem 1.5rem;
+  color: #b2becd;
+  font-size: 1.08rem;
+  font-weight: 600;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  margin-bottom: 0.2rem;
   text-align: left;
-  font-size: 1rem;
+  transition: background 0.2s, color 0.2s;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
 }
 
-.sidebar-button:hover {
-  background-color: #4a5568;
-  color: white;
-}
-
-.sidebar-button.active {
-  background-color: #4299e1;
-  color: white;
+.sidebar-button.active, .sidebar-button:hover {
+  background: #19e2c4;
+  color: #10182a;
 }
 
 .sidebar-button.active::before {
@@ -72,8 +73,12 @@
 /* Main content area */
 .admin-main {
   flex: 1;
-  padding: 2rem;
-  overflow-y: auto;
+  padding: 2.5rem 2rem;
+  background: linear-gradient(135deg, #232b43 60%, #7f5af0 100%);
+  border-radius: 18px;
+  margin: 2rem 2rem 2rem 0;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+  min-height: 70vh;
 }
 
 /* Loading & Error states */
@@ -87,19 +92,18 @@
 }
 
 .loading-spinner {
+  border: 4px solid #232b43;
+  border-top: 4px solid #19e2c4;
+  border-radius: 50%;
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-radius: 50%;
-  border-top-color: #4299e1;
-  animation: spin 1s ease infinite;
-  margin-bottom: 1rem;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem auto;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .error-container p {
@@ -364,24 +368,24 @@
 
 /* Estilos para el sidebar */
 .sidebar-divider {
-  height: 1px;
-  background-color: #4a5568;
-  margin: 1rem 1.5rem;
-  opacity: 0.3;
+  border-bottom: 1.5px solid #19e2c4;
+  margin: 1.2rem 0 0.7rem 0;
 }
 
 .sidebar-title {
-  color: #a0aec0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0 1.5rem;
-  margin-bottom: 0.5rem;
+  color: #19e2c4;
+  font-size: 1.01rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
 }
 
 /* Estilos para CRUD */
 .crud-container {
-  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
 }
 
 .crud-container h2 {
@@ -391,11 +395,16 @@
 }
 
 .crud-form {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1.5rem;
+  background: #232b43;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
   margin-bottom: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(25,226,196,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-width: 420px;
+  margin: 0 auto;
 }
 
 .crud-form h3 {
@@ -519,4 +528,56 @@
     display: block;
     overflow-x: auto;
   }
+}
+
+@media (max-width: 900px) {
+  .admin-content {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    min-width: 100%;
+    border-radius: 0 0 18px 18px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 1rem 0.5rem;
+  }
+  .admin-main {
+    margin: 1rem 0;
+    padding: 1.2rem 0.5rem;
+  }
+}
+
+.form-error {
+  background: #ffe5e5;
+  color: #c53030;
+  border: 1.5px solid #f56565;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+.form-error .error-icon {
+  font-size: 1.3rem;
+}
+
+.form-success {
+  background: #e6ffed;
+  color: #276749;
+  border: 1.5px solid #38a169;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+.form-success .success-icon {
+  font-size: 1.3rem;
 } 

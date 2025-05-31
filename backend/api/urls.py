@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .views import TrackAnalysisView, MusicFileViewSet
 
 # Configuración del router para las vistas basadas en ViewSets
 router = DefaultRouter()
@@ -9,6 +10,7 @@ router.register(r'genres', views.GenreViewSet, basename='genre')
 router.register(r'moods', views.MoodViewSet, basename='mood')
 router.register(r'tracks', views.TrackViewSet, basename='track')
 router.register(r'analyses', views.AnalysisViewSet, basename='analysis')
+router.register(r'music', MusicFileViewSet, basename='music')
 
 # Router para endpoints de administración
 admin_router = DefaultRouter()
@@ -36,4 +38,5 @@ urlpatterns = [
     path("admin/crud/", include(admin_router.urls)),
     
     path("api/", include(router.urls)),  # Incluye las rutas generadas por el router
+    path('api/tracks/<int:pk>/analysis/', TrackAnalysisView.as_view(), name='track-analysis'),
 ]

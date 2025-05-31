@@ -23,6 +23,20 @@ function Admin() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Al inicio del componente Admin:
+    const [newUser, setNewUser] = useState({ username: '', email: '', password: '', confirm_password: '', is_superuser: false });
+    const [creating, setCreating] = useState(false);
+    const [artistError, setArtistError] = useState("");
+    const [artistSuccess, setArtistSuccess] = useState("");
+    const [genreError, setGenreError] = useState("");
+    const [genreSuccess, setGenreSuccess] = useState("");
+    const [moodError, setMoodError] = useState("");
+    const [moodSuccess, setMoodSuccess] = useState("");
+    const [trackError, setTrackError] = useState("");
+    const [trackSuccess, setTrackSuccess] = useState("");
+    const [newTrack, setNewTrack] = useState({ title: '', artist: '', genre: '', mood: '', bpm: '', duration: '', file: null });
+    const [analysisError, setAnalysisError] = useState("");
+
     useEffect(() => {
         // Cargar datos según la pestaña activa
         loadTabData();
@@ -221,17 +235,68 @@ function Admin() {
     };
 
     const renderUsers = () => {
+        // Crear usuario
+        const handleCreateUser = async () => {
+            setCreating(true);
+            try {
+                await api.post('/api/admin/users/', newUser);
+                setNewUser({ username: '', email: '', password: '', confirm_password: '', is_superuser: false });
+                loadTabData();
+            } catch (err) {
+                alert('Error al crear usuario: ' + (err.response?.data?.detail || err.message));
+            } finally {
+                setCreating(false);
+            }
+        };
+
+        // Eliminar usuario
+        const handleDeleteUser = async (id) => {
+            if (!window.confirm('¿Eliminar este usuario?')) return;
+            try {
+                await api.delete(`/api/admin/users/${id}/`);
+                loadTabData();
+            } catch (err) {
+                alert('Error al eliminar usuario: ' + (err.response?.data?.detail || err.message));
+            }
+        };
+
+        // Cambiar admin
+        const handleToggleAdmin = async (user) => {
+            try {
+                await api.patch(`/api/admin/users/${user.id}/`, { is_superuser: !user.is_superuser });
+                loadTabData();
+            } catch (err) {
+                alert('Error al cambiar privilegios: ' + (err.response?.data?.detail || err.message));
+            }
+        };
+
         return (
             <div className="users-container">
                 <h2>Gestión de Usuarios</h2>
+                <div className="user-form">
+                    <h3>Crear nuevo usuario</h3>
+                    <input type="text" placeholder="Usuario" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
+                    <input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+                    <input type="password" placeholder="Contraseña" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                    <input type="password" placeholder="Confirmar contraseña" value={newUser.confirm_password} onChange={e => setNewUser({ ...newUser, confirm_password: e.target.value })} />
+                    <label style={{marginTop: '0.5rem'}}>
+                        <input type="checkbox" checked={newUser.is_superuser} onChange={e => setNewUser({ ...newUser, is_superuser: e.target.checked })} />
+                        {' '}Admin
+                    </label>
+                    <button className="crud-button create-button" onClick={handleCreateUser} disabled={creating}>
+                        {creating ? 'Creando...' : 'Crear Usuario'}
+                    </button>
+                </div>
                 <div className="table-container">
                     <table className="data-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
                                 <th>Usuario</th>
+                                <th>Email</th>
                                 <th>Admin</th>
                                 <th>Fecha de registro</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -239,8 +304,16 @@ function Admin() {
                                 <tr key={user.id}>
                                     <td>{user.id}</td>
                                     <td>{user.username}</td>
-                                    <td>{user.is_superuser ? "Sí" : "No"}</td>
-                                    <td>{formatDate(user.date_joined)}</td>
+                                    <td>{user.email}</td>
+                                    <td>
+                                        <input type="checkbox" checked={user.is_superuser} onChange={() => handleToggleAdmin(user)} />
+                                    </td>
+                                    <td>{user.date_joined ? formatDate(user.date_joined) : 'Sin fecha'}</td>
+                                    <td>
+                                        <button className="crud-button delete-button" onClick={() => handleDeleteUser(user.id)}>
+                                            Eliminar
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -329,6 +402,30 @@ function Admin() {
 
     // Renderizado para CRUD de Artistas
     const renderArtistsCRUD = () => {
+        // Crear artista
+        const handleCreateArtist = async () => {
+            setArtistError(""); setArtistSuccess("");
+            if (!newItem.name) { setArtistError("El nombre es obligatorio"); return; }
+            try {
+                await api.post('/api/admin/crud/artists/', newItem);
+                setArtistSuccess("¡Artista creado!");
+                setNewItem({});
+                loadTabData();
+            } catch (err) {
+                setArtistError("Error al crear artista: " + (err.response?.data?.detail || err.message));
+            }
+        };
+        // Eliminar artista
+        const handleDeleteArtist = async (id) => {
+            if (!window.confirm("¿Eliminar este artista?")) return;
+            try {
+                await api.delete(`/api/admin/crud/artists/${id}/`);
+                loadTabData();
+            } catch (err) {
+                setArtistError("Error al eliminar artista: " + (err.response?.data?.detail || err.message));
+            }
+        };
+
         return (
             <div className="crud-container">
                 <h2>Gestión de Artistas</h2>
@@ -347,7 +444,7 @@ function Admin() {
                     </div>
                     <button 
                         className="crud-button create-button"
-                        onClick={() => handleCreate('artists', newItem)}
+                        onClick={handleCreateArtist}
                         disabled={!newItem.name}
                     >
                         Crear Artista
@@ -407,7 +504,7 @@ function Admin() {
                                                 </button>
                                                 <button 
                                                     className="crud-button delete-button"
-                                                    onClick={() => handleDelete('artists', artist.id)}
+                                                    onClick={() => handleDeleteArtist(artist.id)}
                                                 >
                                                     Eliminar
                                                 </button>
@@ -425,6 +522,30 @@ function Admin() {
 
     // Renderizado para CRUD de Géneros
     const renderGenresCRUD = () => {
+        // Crear género
+        const handleCreateGenre = async () => {
+            setGenreError(""); setGenreSuccess("");
+            if (!newItem.name) { setGenreError("El nombre es obligatorio"); return; }
+            try {
+                await api.post('/api/admin/crud/genres/', newItem);
+                setGenreSuccess("¡Género creado!");
+                setNewItem({});
+                loadTabData();
+            } catch (err) {
+                setGenreError("Error al crear género: " + (err.response?.data?.detail || err.message));
+            }
+        };
+        // Eliminar género
+        const handleDeleteGenre = async (id) => {
+            if (!window.confirm("¿Eliminar este género?")) return;
+            try {
+                await api.delete(`/api/admin/crud/genres/${id}/`);
+                loadTabData();
+            } catch (err) {
+                setGenreError("Error al eliminar género: " + (err.response?.data?.detail || err.message));
+            }
+        };
+
         return (
             <div className="crud-container">
                 <h2>Gestión de Géneros</h2>
@@ -443,7 +564,7 @@ function Admin() {
                     </div>
                     <button 
                         className="crud-button create-button"
-                        onClick={() => handleCreate('genres', newItem)}
+                        onClick={handleCreateGenre}
                         disabled={!newItem.name}
                     >
                         Crear Género
@@ -501,7 +622,7 @@ function Admin() {
                                                 </button>
                                                 <button 
                                                     className="crud-button delete-button"
-                                                    onClick={() => handleDelete('genres', genre.id)}
+                                                    onClick={() => handleDeleteGenre(genre.id)}
                                                 >
                                                     Eliminar
                                                 </button>
@@ -519,6 +640,30 @@ function Admin() {
 
     // Renderizado para CRUD de Estados de Ánimo (Moods)
     const renderMoodsCRUD = () => {
+        // Crear mood
+        const handleCreateMood = async () => {
+            setMoodError(""); setMoodSuccess("");
+            if (!newItem.name) { setMoodError("El nombre es obligatorio"); return; }
+            try {
+                await api.post('/api/admin/crud/moods/', newItem);
+                setMoodSuccess("¡Estado de ánimo creado!");
+                setNewItem({});
+                loadTabData();
+            } catch (err) {
+                setMoodError("Error al crear estado de ánimo: " + (err.response?.data?.detail || err.message));
+            }
+        };
+        // Eliminar mood
+        const handleDeleteMood = async (id) => {
+            if (!window.confirm("¿Eliminar este estado de ánimo?")) return;
+            try {
+                await api.delete(`/api/admin/crud/moods/${id}/`);
+                loadTabData();
+            } catch (err) {
+                setMoodError("Error al eliminar estado de ánimo: " + (err.response?.data?.detail || err.message));
+            }
+        };
+
         return (
             <div className="crud-container">
                 <h2>Gestión de Estados de Ánimo</h2>
@@ -537,7 +682,7 @@ function Admin() {
                     </div>
                     <button 
                         className="crud-button create-button"
-                        onClick={() => handleCreate('moods', newItem)}
+                        onClick={handleCreateMood}
                         disabled={!newItem.name}
                     >
                         Crear Estado de Ánimo
@@ -595,7 +740,7 @@ function Admin() {
                                                 </button>
                                                 <button 
                                                     className="crud-button delete-button"
-                                                    onClick={() => handleDelete('moods', mood.id)}
+                                                    onClick={() => handleDeleteMood(mood.id)}
                                                 >
                                                     Eliminar
                                                 </button>
@@ -613,37 +758,26 @@ function Admin() {
 
     // Renderizado para CRUD de Pistas
     const renderTracksCRUD = () => {
-        const [newTrack, setNewTrack] = useState({
-            title: '',
-            artist: '',
-            genre: '',
-            mood: '',
-            bpm: '',
-            duration: '',
-            file: null
-        });
-        const [uploadError, setUploadError] = useState('');
-
         const handleTrackFileChange = (e) => {
             const file = e.target.files[0];
             if (file) {
                 // Validación del lado del cliente para archivos MP3 y WAV
                 const fileName = file.name.toLowerCase();
                 if (!fileName.endsWith('.mp3') && !fileName.endsWith('.wav')) {
-                    setUploadError("Error: Solo se permiten archivos MP3 y WAV");
+                    setTrackError("Error: Solo se permiten archivos MP3 y WAV");
                     return;
                 }
-                setUploadError('');
+                setTrackError('');
                 setNewTrack({...newTrack, file: file});
             }
         };
 
         const handleCreateTrack = async () => {
+            setTrackError(""); setTrackSuccess("");
             if (!newTrack.title || !newTrack.artist || !newTrack.file) {
-                setUploadError("Los campos Título, Artista y Archivo son obligatorios");
+                setTrackError("Los campos Título, Artista y Archivo son obligatorios");
                 return;
             }
-
             try {
                 const formData = new FormData();
                 formData.append('title', newTrack.title);
@@ -653,29 +787,26 @@ function Admin() {
                 formData.append('bpm', newTrack.bpm || 0);
                 formData.append('duration', newTrack.duration || 0);
                 formData.append('file', newTrack.file);
-
                 await api.post('/api/admin/crud/tracks/', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    }
+                    headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                
-                // Limpiar formulario y recargar datos
-                setNewTrack({
-                    title: '',
-                    artist: '',
-                    genre: '',
-                    mood: '',
-                    bpm: '',
-                    duration: '',
-                    file: null
-                });
-                setUploadError('');
+                setTrackSuccess("¡Pista creada!");
+                setNewTrack({ title: '', artist: '', genre: '', mood: '', bpm: '', duration: '', file: null });
+                setTrackError("");
                 loadTabData();
             } catch (error) {
-                console.error('Error creating track:', error);
                 const errorMessage = error.response?.data?.error || "Error al crear la pista";
-                setUploadError(errorMessage);
+                setTrackError(errorMessage);
+            }
+        };
+
+        const handleDeleteTrack = async (id) => {
+            if (!window.confirm("¿Eliminar esta pista?")) return;
+            try {
+                await api.delete(`/api/admin/crud/tracks/${id}/`);
+                loadTabData();
+            } catch (err) {
+                setTrackError("Error al eliminar pista: " + (err.response?.data?.detail || err.message));
             }
         };
 
@@ -737,7 +868,14 @@ function Admin() {
                             <input 
                                 type="number" 
                                 value={newTrack.bpm} 
-                                onChange={(e) => setNewTrack({...newTrack, bpm: e.target.value})}
+                                onChange={(e) => {
+                                    let value = e.target.value;
+                                    if (value < 0) value = 0;
+                                    if (value > 200) value = 200;
+                                    setNewTrack({...newTrack, bpm: value});
+                                }}
+                                min={0}
+                                max={200}
                                 placeholder="Beats por minuto"
                             />
                         </div>
@@ -760,9 +898,17 @@ function Admin() {
                         </div>
                     </div>
                     
-                    {uploadError && (
-                        <div className="error-message form-error">
-                            {uploadError}
+                    {trackError && (
+                        <div className="form-error">
+                            <span className="error-icon">⚠️</span>
+                            {trackError}
+                        </div>
+                    )}
+                    
+                    {trackSuccess && (
+                        <div className="form-success">
+                            <span className="success-icon">✅</span>
+                            {trackSuccess}
                         </div>
                     )}
                     
@@ -796,12 +942,12 @@ function Admin() {
                                 <tr key={track.id}>
                                     <td>{track.id}</td>
                                     <td>{track.title}</td>
-                                    <td>{artists.find(a => a.id === track.artist)?.name || track.artist}</td>
-                                    <td>{genres.find(g => g.id === track.genre)?.name || track.genre}</td>
-                                    <td>{moods.find(m => m.id === track.mood)?.name || track.mood}</td>
+                                    <td>{typeof track.artist === 'object' ? track.artist?.name : (artists.find(a => a.id === track.artist)?.name || track.artist)}</td>
+                                    <td>{typeof track.genre === 'object' ? track.genre?.name : (genres.find(g => g.id === track.genre)?.name || track.genre)}</td>
+                                    <td>{typeof track.mood === 'object' ? track.mood?.name : (moods.find(m => m.id === track.mood)?.name || track.mood)}</td>
                                     <td>{track.bpm}</td>
                                     <td>{track.duration}s</td>
-                                    <td>{formatDate(track.created_at)}</td>
+                                    <td>{formatDate(track.uploaded_at)}</td>
                                     <td className="action-buttons">
                                         <button 
                                             className="crud-button view-button"
@@ -811,7 +957,7 @@ function Admin() {
                                         </button>
                                         <button 
                                             className="crud-button delete-button"
-                                            onClick={() => handleDelete('tracks', track.id)}
+                                            onClick={() => handleDeleteTrack(track.id)}
                                         >
                                             Eliminar
                                         </button>
@@ -827,6 +973,17 @@ function Admin() {
 
     // Renderizado para CRUD de Análisis
     const renderAnalysesCRUD = () => {
+        // Eliminar análisis
+        const handleDeleteAnalysis = async (id) => {
+            if (!window.confirm("¿Eliminar este análisis?")) return;
+            try {
+                await api.delete(`/api/admin/crud/analyses/${id}/`);
+                loadTabData();
+            } catch (err) {
+                setAnalysisError("Error al eliminar análisis: " + (err.response?.data?.detail || err.message));
+            }
+        };
+
         return (
             <div className="crud-container">
                 <h2>Gestión de Análisis</h2>
@@ -857,7 +1014,7 @@ function Admin() {
                                         </button>
                                         <button 
                                             className="crud-button delete-button"
-                                            onClick={() => handleDelete('analyses', analysis.id)}
+                                            onClick={() => handleDeleteAnalysis(analysis.id)}
                                         >
                                             Eliminar
                                         </button>

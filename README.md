@@ -1,123 +1,123 @@
-# 🎵 Music Analysis Platform - Django React Full Stack App 🚀
+# Melocuore - Music Analysis Platform
 
-## 📋 Overview
+Melocuore is a powerful music analysis platform designed for DJs and music producers. It provides automatic audio analysis, track management, and a REST API for integration with other applications.
 
-This is a full-stack web application built with Django REST Framework and React that allows users to upload, organize, and analyze music files. It includes user authentication, file management, and an admin dashboard for monitoring system usage and music analysis.
+## Features
 
+- Audio file upload and management
+- Automatic audio analysis using librosa
+- BPM detection
+- Genre and mood classification
+- REST API for track management
+- User authentication and authorization
+- Artist profiles and track organization
 
-## ✨ Features
+## Tech Stack
 
-- 🔐 **User Authentication** - Register, login, and JWT token-based authentication
-- 📁 **File Management** - Upload and view audio files (MP3, WAV)
-- 🎧 **Music Analysis** - Track, artist, genre, and mood management
-- 📊 **Admin Dashboard** - Complete overview of users, files, and system usage
-- 🛠️ **CRUD Operations** - Full admin control over music metadata
-- 📱 **Responsive Design** - Modern UI built with React and styled for all devices
+### Backend
+- Django 5.0.1
+- Django REST Framework 3.14.0
+- Celery 5.3.6
+- Redis
+- Librosa 0.10.1
+- NumPy 1.26.3
 
-## 🔧 Technologies
+### Frontend
+- React
+- Material-UI
+- Axios
 
-### Backend 🖥️
-- **Django** - Web framework
-- **Django REST Framework** - API development
-- **JWT Authentication** - Secure user authentication
-- **PostgreSQL** - Database (via psycopg2)
-
-### Frontend 🎨
-- **React** - UI library
-- **React Router** - Navigation
-- **Axios** - HTTP client
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-
-## 🚀 Installation
+## Setup
 
 ### Prerequisites
-- Python 3.7+
+- Python 3.8+
 - Node.js 14+
-- npm or yarn
-- PostgreSQL (optional, can use SQLite for development)
+- Redis
+- PostgreSQL
 
-### Setup
+### Backend Setup
+1. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/Django-React-Full-Stack-App.git
-   cd Django-React-Full-Stack-App
-   ```
+2. Install dependencies:
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-2. **Backend setup**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python manage.py migrate
-   python manage.py createsuperuser
-   python manage.py runserver
-   ```
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
 
-3. **Frontend setup**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+4. Run migrations:
+```bash
+python manage.py migrate
+```
 
-## 🌟 Usage
+5. Start Redis:
+```bash
+redis-server
+```
 
-1. **User Registration/Login**
-   - Create a new account or login with existing credentials
-   - JWT tokens are automatically managed for authentication
+6. Start Celery worker:
+```bash
+celery -A melocuore worker -l info
+```
 
-2. **File Upload**
-   - Upload MP3 or WAV audio files from the user dashboard
-   - View your uploaded files
+7. Run the development server:
+```bash
+python manage.py runserver
+```
 
-3. **Admin Dashboard**
-   - Access comprehensive statistics about users and files
-   - Manage artists, genres, moods, and tracks
-   - Analyze audio content
+### Frontend Setup
+1. Install dependencies:
+```bash
+cd frontend
+npm install
+```
 
-## 👥 User Roles
+2. Start the development server:
+```bash
+npm start
+```
 
-- **Regular Users**: Upload and manage their own audio files
-- **Administrators**: Full access to all users' data, files, and system management features
-
-## 📝 API Endpoints
+## API Endpoints
 
 ### Authentication
-- `/api/user/register/` - Create new user account
-- `/api/token/` - Get JWT tokens
+- POST /api/token/ - Get JWT token
+- POST /api/token/refresh/ - Refresh JWT token
 
-### User Operations
-- `/api/files/` - List user's files
-- `/api/upload/` - Upload new file
+### Tracks
+- GET /api/tracks/ - List tracks
+- POST /api/tracks/upload/ - Upload new track
+- GET /api/tracks/{id}/ - Get track details
+- GET /api/tracks/{id}/analysis/ - Get track analysis
 
-### Admin Operations
-- `/api/admin/dashboard/` - Get admin dashboard stats
-- `/api/admin/users/` - List all users
-- `/api/admin/files/` - List all files
-- `/api/admin/crud/artists/` - Manage artists
-- `/api/admin/crud/genres/` - Manage genres
-- `/api/admin/crud/moods/` - Manage moods
-- `/api/admin/crud/tracks/` - Manage tracks
-- `/api/admin/crud/analyses/` - Manage analyses
+### Artists
+- GET /api/artists/ - List artists
+- POST /api/artists/ - Create artist
+- GET /api/artists/{id}/ - Get artist details
 
-## 🔒 Environment Variables
+### Genres & Moods
+- GET /api/genres/ - List genres
+- GET /api/moods/ - List moods
 
-Create a `.env` file in the backend directory with:
+## Contributing
 
-```
-SECRET_KEY=your_secret_key
-DEBUG=True
-DATABASE_URL=your_database_url (optional)
-```
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
 
-## 🤝 Contributing
+## License
 
-Contributions, issues, and feature requests are welcome!
-
-## 📄 License
-
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ⌨️ with ❤️ by Junior Espin 
 

@@ -14,6 +14,9 @@ function Home() {
     const [activeTab, setActiveTab] = useState("upload"); // upload o files
     const [loading, setLoading] = useState(false);
     const [isSuperuser, setIsSuperuser] = useState(false);
+    const [comparison, setComparison] = useState(null);
+    const [analysisPolling, setAnalysisPolling] = useState(false);
+    const [pollingError, setPollingError] = useState("");
 
     // Verificar si el usuario es superusuario
     useEffect(() => {
@@ -99,12 +102,14 @@ function Home() {
             });
             
             if (response.status === 201) {
-                setMessage("¡Archivo subido con éxito!");
-                // Si estamos en la pestaña de carga, añadimos el archivo a la lista
+                setMessage("¡Archivo subido con éxito! Analizando...");
                 setUploadedFiles(prev => [response.data, ...prev]);
-                // Reset the form
                 setFile(null);
                 setPreview(null);
+                // Iniciar polling para análisis
+                if (response.data && response.data.id) {
+                    pollForAnalysis(response.data.id);
+                }
             } else {
                 setMessage("Error al subir el archivo");
             }
@@ -115,6 +120,38 @@ function Home() {
             const errorMessage = error.response?.data?.error || "Error al subir el archivo";
             setMessage(errorMessage);
             setUploading(false);
+        }
+    };
+
+    // Polling para análisis
+    const pollForAnalysis = async (trackId, tries = 0) => {
+        setAnalysisPolling(true);
+        setComparison(null);
+        setPollingError("");
+        const maxTries = 20;
+        const delay = 3000;
+        try {
+            const res = await api.get(`/api/tracks/${trackId}/analysis/`);
+            if (res.data && res.data.comparison_result) {
+                setComparison(res.data.comparison_result);
+                setMessage("¡Análisis completado!");
+                setAnalysisPolling(false);
+            } else if (res.data && res.data.status === "completed") {
+                setMessage("¡Análisis completado, pero sin comparación disponible.");
+                setAnalysisPolling(false);
+            } else if (tries < maxTries) {
+                setTimeout(() => pollForAnalysis(trackId, tries + 1), delay);
+            } else {
+                setPollingError("El análisis está tardando demasiado. Intenta recargar la página más tarde.");
+                setAnalysisPolling(false);
+            }
+        } catch (err) {
+            if (tries < maxTries) {
+                setTimeout(() => pollForAnalysis(trackId, tries + 1), delay);
+            } else {
+                setPollingError("Error al obtener el análisis. Intenta recargar la página más tarde.");
+                setAnalysisPolling(false);
+            }
         }
     };
 
@@ -217,6 +254,41 @@ function Home() {
                             <p className={`message ${message.includes("Error") ? "error-message" : ""}`}>
                                 {message}
                             </p>
+                        )}
+                        {analysisPolling && (
+                            <div className="message">Analizando archivo... Por favor espera.</div>
+                        )}
+                        {pollingError && (
+                            <div className="error-message">{pollingError}</div>
+                        )}
+                        {comparison && (
+                            <div className="comparison-result" style={{marginTop: '2rem', background: '#232b43', borderRadius: '12px', padding: '1.5rem', color: '#fff'}}>
+                                <h2 style={{color: '#19e2c4'}}>Comparación de tu canción</h2>
+                                <p><b>Canción más parecida:</b> {comparison.most_similar_track} {comparison.most_similar_artist ? `de ${comparison.most_similar_artist}` : ''}</p>
+                                <p><b>Distancia de similitud:</b> {comparison.distance && comparison.distance.toFixed(2)}</p>
+                                <h3 style={{color: '#19e2c4', marginTop: '1rem'}}>Diferencias campo a campo:</h3>
+                                <ul style={{columns: 2, fontSize: '0.98em'}}>
+                                    {comparison.fields.map(f => (
+                                        <li key={f}>
+                                            <b>{f}:</b> {comparison.values_this[f]?.toFixed(3)} (tu canción), {comparison.values_similar[f]?.toFixed(3)} (parecida), Δ {comparison.diff_with_similar[f] && comparison.diff_with_similar[f].toFixed(3)}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <h3 style={{color: '#19e2c4', marginTop: '1rem'}}>Comparación con el promedio:</h3>
+                                <ul style={{columns: 2, fontSize: '0.98em'}}>
+                                    {comparison.fields.map(f => (
+                                        <li key={f}>
+                                            <b>{f}:</b> Δ {comparison.diff_with_avg[f] && comparison.diff_with_avg[f].toFixed(3)} respecto al promedio
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div style={{marginTop: '1rem'}}>
+                                    <b>Duración:</b> {comparison.duration?.toFixed(2)}s<br/>
+                                    <b>BPM:</b> {comparison.bpm?.toFixed(2)}<br/>
+                                    <b>Género:</b> {comparison.genre}<br/>
+                                    <b>Mood:</b> {comparison.mood}
+                                </div>
+                            </div>
                         )}
                     </form>
                 </div>

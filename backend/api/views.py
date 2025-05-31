@@ -83,7 +83,14 @@ class TrackViewSet(viewsets.ModelViewSet):
             )
             
             # Start fingerprinting task
-            # fingerprint_track.delay(track.id)  # Comentado temporalmente - requiere Celery/Redis
+            try:
+                # Ejecutar fingerprinting directamente (sin Celery para desarrollo)
+                from .tasks import fingerprint_track
+                fingerprint_track(track.id)  # Llamada directa sin .delay()
+            except Exception as e:
+                # Si falla el fingerprinting, el track se queda en pending
+                track.fingerprint_error = str(e)
+                track.save()
             
             return Response(
                 TrackSerializer(track).data,
@@ -98,11 +105,59 @@ class TrackViewSet(viewsets.ModelViewSet):
         """
         track = self.get_object()
         
-        # Si el track tiene análisis, devolverlo
-        if hasattr(track, 'analysis'):
-            return Response(AnalysisSerializer(track.analysis).data)
+        # Si el track tiene análisis completo, devolverlo con todas las características
+        if hasattr(track, 'analysis') and track.analysis.fingerprint_result:
+            analysis_data = AnalysisSerializer(track.analysis).data
+            
+            # Extraer características del fingerprint para mostrar información detallada
+            fingerprint_features = track.analysis.fingerprint_result.get('features', {})
+            
+            # Crear un resumen de análisis musical
+            music_analysis = {
+                'track_id': track.id,
+                'track_title': track.title,
+                'artist_name': track.artist.name,
+                'fingerprint_status': track.fingerprint_status,
+                'fingerprints_count': track.fingerprints_count,
+                
+                # Características musicales extraídas
+                'musical_features': {
+                    'tempo_bpm': fingerprint_features.get('tempo', track.bpm),
+                    'duration_seconds': track.duration,
+                    'spectral_centroid_mean': fingerprint_features.get('spectral_centroid_mean'),
+                    'spectral_centroid_std': fingerprint_features.get('spectral_centroid_std'),
+                    'zero_crossing_rate_mean': fingerprint_features.get('zero_crossing_rate_mean'),
+                    'mfcc_coefficients': fingerprint_features.get('mfcc_mean', [])[:5] if fingerprint_features.get('mfcc_mean') else [],
+                    'chroma_features': fingerprint_features.get('chroma_mean', [])[:5] if fingerprint_features.get('chroma_mean') else [],
+                    'spectral_contrast': fingerprint_features.get('contrast_mean', [])[:3] if fingerprint_features.get('contrast_mean') else [],
+                },
+                
+                # Metadata del archivo
+                'file_info': {
+                    'format': track.analysis.file_format,
+                    'sample_rate': track.sample_rate,
+                    'channels': track.channels,
+                    'bitrate': track.bitrate,
+                    'file_size_mb': round(track.analysis.file_size_bytes / (1024*1024), 2) if track.analysis.file_size_bytes else None,
+                },
+                
+                # Análisis de calidad
+                'quality_analysis': {
+                    'clipping_detected': track.analysis.clipping_detected,
+                    'silence_percentage': track.analysis.silence_percentage,
+                    'rms_amplitude': track.analysis.rms_amplitude,
+                    'max_amplitude': track.analysis.max_amplitude,
+                },
+                
+                'genre': track.genre.name if track.genre else 'Sin clasificar',
+                'mood': track.mood.name if track.mood else 'Sin clasificar',
+                'message': 'Análisis completo disponible con características musicales',
+                'analysis_complete': True
+            }
+            
+            return Response(music_analysis, status=status.HTTP_200_OK)
         
-        # Si no hay análisis, devolver información básica del track
+        # Si no hay análisis completo, devolver información básica del track
         return Response({
             'track_id': track.id,
             'track_title': track.title,
@@ -110,7 +165,8 @@ class TrackViewSet(viewsets.ModelViewSet):
             'fingerprint_status': track.fingerprint_status,
             'fingerprint_error': track.fingerprint_error,
             'fingerprints_count': track.fingerprints_count,
-            'message': 'No detailed analysis available yet'
+            'message': 'Análisis en proceso o no disponible',
+            'analysis_complete': False
         }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
@@ -239,12 +295,14 @@ class FileUploadView(generics.CreateAPIView):
                     processing_status='pending'
                 )
                 
-                # Para debugging: no usar Celery por ahora
-                # recognize_audio_file.delay(uploaded_file.id)
-                
-                # En su lugar, cambiar el estado a procesando sin ejecutar la tarea
-                uploaded_file.processing_status = 'processing'
-                uploaded_file.save()
+                # Ejecutar reconocimiento directamente (sin Celery para desarrollo)
+                try:
+                    from .tasks import recognize_audio_file
+                    recognize_audio_file(uploaded_file.id)  # Llamada directa sin .delay()
+                except Exception as e:
+                    # Si falla el reconocimiento, el archivo se queda en pending
+                    uploaded_file.processing_status = 'error'
+                    uploaded_file.save()
                 
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:

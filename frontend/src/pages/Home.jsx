@@ -90,17 +90,12 @@ function Home() {
         setMessage("Subiendo archivo...");
 
         try {
-            // Create FormData object
+            // Create FormData object para reconocimiento
             const formData = new FormData();
             formData.append("file", file);
-            
-            // Agregar campos requeridos por TrackUploadSerializer
-            const title = file.name.replace(/\.[^/.]+$/, ""); // Quitar extensión del archivo
-            formData.append("title", title);
-            formData.append("artist_name", "Usuario Anónimo"); // Artista por defecto
 
-            // Realizar la subida real al endpoint
-            const response = await api.post("/api/tracks/upload/", formData, {
+            // Realizar la subida real al endpoint de reconocimiento
+            const response = await api.post("/api/upload/", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
@@ -108,17 +103,17 @@ function Home() {
             
             if (response.status === 201) {
                 console.log("📦 Upload response data:", response.data);
-                setMessage("¡Archivo subido con éxito! Analizando...");
+                setMessage("¡Archivo subido con éxito! Reconociendo...");
                 setUploadedFiles(prev => [response.data, ...prev]);
                 setFile(null);
                 setPreview(null);
-                // Iniciar polling para análisis
+                // Iniciar polling para reconocimiento
                 if (response.data && response.data.id) {
-                    console.log("🎯 Starting analysis for track ID:", response.data.id);
-                    pollForAnalysis(response.data.id);
+                    console.log("🎯 Starting recognition for file ID:", response.data.id);
+                    pollForRecognition(response.data.id);
                 } else {
                     console.log("❌ No ID found in upload response:", response.data);
-                    setMessage("Archivo subido, pero no se pudo iniciar el análisis (falta ID)");
+                    setMessage("Archivo subido, pero no se pudo iniciar el reconocimiento (falta ID)");
                 }
             } else {
                 setMessage("Error al subir el archivo");
@@ -133,51 +128,59 @@ function Home() {
         }
     };
 
-    // Polling para análisis
-    const pollForAnalysis = async (trackId, tries = 0) => {
+    // Polling para reconocimiento
+    const pollForRecognition = async (fileId, tries = 0) => {
         setAnalysisPolling(true);
         setComparison(null);
         setPollingError("");
-        const maxTries = 3; // Reducir de 20 a 3 intentos
-        const delay = 2000; // Reducir de 3000 a 2000ms
+        const maxTries = 5; // Más intentos para reconocimiento
+        const delay = 3000; // 3 segundos entre intentos
         try {
-            console.log(`🔍 Attempting to fetch analysis for track ${trackId}, try ${tries + 1}`);
-            const res = await api.get(`/api/tracks/${trackId}/analysis/`);
+            console.log(`🔍 Attempting to fetch recognition for file ${fileId}, try ${tries + 1}`);
+            const res = await api.get(`/api/recognition-status/${fileId}/`);
             
-            if (res.data && res.data.comparison_result) {
-                // Análisis completo disponible
-                setComparison(res.data.comparison_result);
-                setMessage("¡Análisis completado!");
+            if (res.data && res.data.status === 'found' && res.data.track) {
+                // Canción reconocida exitosamente
+                setComparison({
+                    recognition: true,
+                    track: res.data.track,
+                    confidence: res.data.confidence,
+                    processing_time: res.data.processing_time,
+                    recognition_id: res.data.recognition_id
+                });
+                setMessage("¡Canción reconocida exitosamente!");
                 setAnalysisPolling(false);
-            } else if (res.data && res.data.track_id) {
-                // Información básica del track disponible
-                const trackInfo = {
-                    basic_info: true,
-                    track_id: res.data.track_id,
-                    track_title: res.data.track_title,
-                    artist_name: res.data.artist_name,
-                    fingerprint_status: res.data.fingerprint_status,
-                    fingerprints_count: res.data.fingerprints_count,
-                    message: res.data.message || 'Información básica del track'
-                };
-                setComparison(trackInfo);
-                setMessage("¡Track subido exitosamente! Información disponible.");
+            } else if (res.data && res.data.status === 'not_found') {
+                // Canción no encontrada en la base de datos
+                setComparison({
+                    not_found: true,
+                    processing_time: res.data.processing_time
+                });
+                setMessage("Canción no encontrada en la base de datos.");
                 setAnalysisPolling(false);
-            } else if (res.data && res.data.status === "completed") {
-                setMessage("¡Análisis completado, pero sin comparación disponible.");
+            } else if (res.data && res.data.status === 'processing') {
+                // Aún procesando
+                if (tries < maxTries) {
+                    setTimeout(() => pollForRecognition(fileId, tries + 1), delay);
+                } else {
+                    setPollingError("El reconocimiento está tardando demasiado. Intenta más tarde.");
+                    setAnalysisPolling(false);
+                }
+            } else if (res.data && res.data.status === 'error') {
+                setPollingError("Error en el reconocimiento: " + (res.data.error || "Error desconocido"));
                 setAnalysisPolling(false);
             } else if (tries < maxTries) {
-                setTimeout(() => pollForAnalysis(trackId, tries + 1), delay);
+                setTimeout(() => pollForRecognition(fileId, tries + 1), delay);
             } else {
-                setPollingError("No se pudo obtener información del análisis en este momento.");
+                setPollingError("No se pudo completar el reconocimiento.");
                 setAnalysisPolling(false);
             }
         } catch (err) {
-            console.error(`❌ Analysis attempt ${tries + 1} failed:`, err);
+            console.error(`❌ Recognition attempt ${tries + 1} failed:`, err);
             if (tries < maxTries) {
-                setTimeout(() => pollForAnalysis(trackId, tries + 1), delay);
+                setTimeout(() => pollForRecognition(fileId, tries + 1), delay);
             } else {
-                setPollingError("Error al obtener el análisis. El track se subió correctamente.");
+                setPollingError("Error de conexión durante el reconocimiento.");
                 setAnalysisPolling(false);
             }
         }
@@ -291,63 +294,68 @@ function Home() {
                         )}
                         {comparison && (
                             <div className="comparison-result" style={{marginTop: '2rem', background: '#232b43', borderRadius: '12px', padding: '1.5rem', color: '#fff'}}>
-                                {comparison.basic_info ? (
-                                    // Mostrar información básica del track
+                                {comparison.recognition ? (
+                                    // Mostrar información de reconocimiento exitoso
                                     <>
-                                        <h2 style={{color: '#19e2c4'}}>🎵 Información del Track</h2>
+                                        <h2 style={{color: '#19e2c4'}}>🎵 ¡Canción Reconocida!</h2>
                                         <div style={{background: '#1a2332', borderRadius: '8px', padding: '1rem', marginTop: '1rem'}}>
-                                            <p><b>📝 Título:</b> {comparison.track_title}</p>
-                                            <p><b>🎤 Artista:</b> {comparison.artist_name}</p>
-                                            <p><b>🔑 ID del Track:</b> {comparison.track_id}</p>
-                                            <p><b>🔍 Estado del Fingerprint:</b> 
-                                                <span style={{
-                                                    color: comparison.fingerprint_status === 'completed' ? '#19e2c4' : 
-                                                           comparison.fingerprint_status === 'pending' ? '#f39c12' : '#e74c3c',
-                                                    fontWeight: 'bold',
-                                                    marginLeft: '0.5rem'
-                                                }}>
-                                                    {comparison.fingerprint_status === 'pending' ? '⏳ Pendiente' :
-                                                     comparison.fingerprint_status === 'completed' ? '✅ Completado' :
-                                                     comparison.fingerprint_status === 'failed' ? '❌ Fallido' : 
-                                                     comparison.fingerprint_status}
-                                                </span>
+                                            <h3 style={{color: '#19e2c4', marginBottom: '0.5rem'}}>📝 Información de la Canción</h3>
+                                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.95em'}}>
+                                                <p><b>Título:</b> {comparison.track.title}</p>
+                                                <p><b>Artista:</b> {comparison.track.artist}</p>
+                                                <p><b>Género:</b> {comparison.track.genre || 'Sin clasificar'}</p>
+                                                <p><b>Mood:</b> {comparison.track.mood || 'Sin clasificar'}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{background: '#1a2332', borderRadius: '8px', padding: '1rem', marginTop: '1rem'}}>
+                                            <h3 style={{color: '#19e2c4', marginBottom: '0.5rem'}}>📊 Estadísticas de Reconocimiento</h3>
+                                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.95em'}}>
+                                                <p><b>Confianza:</b> {(comparison.confidence * 100).toFixed(1)}%</p>
+                                                <p><b>Tiempo de procesamiento:</b> {comparison.processing_time?.toFixed(2)}s</p>
+                                                <p><b>ID de reconocimiento:</b> {comparison.recognition_id}</p>
+                                                <p><b>ID del track:</b> {comparison.track.id}</p>
+                                            </div>
+                                        </div>
+
+                                        <div style={{marginTop: '1rem', padding: '0.75rem', background: '#0f1419', borderRadius: '6px', border: '1px solid #19e2c4'}}>
+                                            <p style={{margin: 0, color: '#19e2c4', textAlign: 'center'}}>
+                                                ✨ ¡Canción identificada con éxito! Confianza: {(comparison.confidence * 100).toFixed(1)}%
                                             </p>
-                                            <p><b>🔢 Fingerprints:</b> {comparison.fingerprints_count}</p>
+                                        </div>
+                                    </>
+                                ) : comparison.not_found ? (
+                                    // Mostrar mensaje de canción no encontrada
+                                    <>
+                                        <h2 style={{color: '#f39c12'}}>❓ Canción No Encontrada</h2>
+                                        <div style={{background: '#1a2332', borderRadius: '8px', padding: '1rem', marginTop: '1rem'}}>
+                                            <p style={{textAlign: 'center', fontSize: '1.1em', margin: '1rem 0'}}>
+                                                Esta canción no está en nuestra base de datos de referencia.
+                                            </p>
+                                            {comparison.processing_time && (
+                                                <p><b>Tiempo de procesamiento:</b> {comparison.processing_time.toFixed(2)}s</p>
+                                            )}
+                                            <div style={{marginTop: '1rem', padding: '0.75rem', background: '#0f1419', borderRadius: '6px', border: '1px solid #f39c12'}}>
+                                                <p style={{margin: 0, color: '#f39c12', textAlign: 'center'}}>
+                                                    💡 Puede ser una canción nueva o no incluida en nuestra base de datos
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    // Mostrar mensaje de procesamiento
+                                    <>
+                                        <h2 style={{color: '#19e2c4'}}>🎵 Procesando Reconocimiento</h2>
+                                        <div style={{background: '#1a2332', borderRadius: '8px', padding: '1rem', marginTop: '1rem'}}>
+                                            <p><b>📝 Título:</b> {comparison.track.track_title}</p>
+                                            <p><b>🎤 Artista:</b> {comparison.track.artist_name}</p>
+                                            <p><b>🔢 ID del Track:</b> {comparison.track.track_id}</p>
                                             <div style={{marginTop: '1rem', padding: '0.75rem', background: '#0f1419', borderRadius: '6px', border: '1px solid #19e2c4'}}>
                                                 <p style={{margin: 0, color: '#19e2c4'}}>ℹ️ {comparison.message}</p>
                                             </div>
                                         </div>
                                         <div style={{marginTop: '1rem', fontSize: '0.9em', color: '#bbb'}}>
-                                            <p>💡 El análisis detallado estará disponible cuando se complete el procesamiento del fingerprint.</p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    // Mostrar análisis completo original
-                                    <>
-                                        <h2 style={{color: '#19e2c4'}}>Comparación de tu canción</h2>
-                                        <p><b>Canción más parecida:</b> {comparison.most_similar_track} {comparison.most_similar_artist ? `de ${comparison.most_similar_artist}` : ''}</p>
-                                        <p><b>Distancia de similitud:</b> {comparison.distance && comparison.distance.toFixed(2)}</p>
-                                        <h3 style={{color: '#19e2c4', marginTop: '1rem'}}>Diferencias campo a campo:</h3>
-                                        <ul style={{columns: 2, fontSize: '0.98em'}}>
-                                            {comparison.fields && comparison.fields.map(f => (
-                                                <li key={f}>
-                                                    <b>{f}:</b> {comparison.values_this[f]?.toFixed(3)} (tu canción), {comparison.values_similar[f]?.toFixed(3)} (parecida), Δ {comparison.diff_with_similar[f] && comparison.diff_with_similar[f].toFixed(3)}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <h3 style={{color: '#19e2c4', marginTop: '1rem'}}>Comparación con el promedio:</h3>
-                                        <ul style={{columns: 2, fontSize: '0.98em'}}>
-                                            {comparison.fields && comparison.fields.map(f => (
-                                                <li key={f}>
-                                                    <b>{f}:</b> Δ {comparison.diff_with_avg[f] && comparison.diff_with_avg[f].toFixed(3)} respecto al promedio
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <div style={{marginTop: '1rem'}}>
-                                            <b>Duración:</b> {comparison.duration?.toFixed(2)}s<br/>
-                                            <b>BPM:</b> {comparison.bpm?.toFixed(2)}<br/>
-                                            <b>Género:</b> {comparison.genre}<br/>
-                                            <b>Mood:</b> {comparison.mood}
+                                            <p>💡 El reconocimiento está tardando. Por favor, espera.</p>
                                         </div>
                                     </>
                                 )}

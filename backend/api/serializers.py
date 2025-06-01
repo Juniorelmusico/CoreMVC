@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.validators import UniqueValidator
 from rest_framework.exceptions import ValidationError
-from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile
+from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile, MusicAnalysis
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -135,3 +135,14 @@ class MusicFileSerializer(serializers.ModelSerializer):
         model = MusicFile
         fields = ['id', 'title', 'artist', 'file', 'duration', 'tempo', 'key', 'loudness', 'created_at']
         read_only_fields = ['duration', 'tempo', 'key', 'loudness', 'created_at']
+
+
+class MusicAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MusicAnalysis
+        fields = [
+            'id', 'user', 'uploaded_file', 'track', 'title', 'artist',
+            'genre', 'mood', 'spotify_id', 'apple_music_url',
+            'confidence', 'processing_time', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']

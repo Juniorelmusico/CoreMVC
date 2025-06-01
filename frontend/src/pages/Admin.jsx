@@ -15,6 +15,7 @@ function Admin() {
     const [moods, setMoods] = useState([]);
     const [tracks, setTracks] = useState([]);
     const [analyses, setAnalyses] = useState([]);
+    const [musicAnalyses, setMusicAnalyses] = useState([]);
     
     // Estado para formularios de edición
     const [editItem, setEditItem] = useState(null);
@@ -83,6 +84,10 @@ function Admin() {
             else if (activeTab === "analyses") {
                 const response = await api.get("/api/admin/crud/analyses/");
                 setAnalyses(response.data);
+            }
+            else if (activeTab === "inicio") {
+                const response = await api.get("/");
+                setMusicAnalyses(response.data);
             }
         } catch (err) {
             console.error("Error al cargar datos:", err);
@@ -971,50 +976,75 @@ function Admin() {
         );
     };
 
-    // Renderizado para CRUD de Análisis
-    const renderAnalysesCRUD = () => {
-        // Eliminar análisis
-        const handleDeleteAnalysis = async (id) => {
-            if (!window.confirm("¿Eliminar este análisis?")) return;
-            try {
-                await api.delete(`/api/admin/crud/analyses/${id}/`);
-                loadTabData();
-            } catch (err) {
-                setAnalysisError("Error al eliminar análisis: " + (err.response?.data?.detail || err.message));
-            }
-        };
+    // Cargar datos de análisis de música
+    const loadMusicAnalyses = async () => {
+        try {
+            const response = await api.get('/api/music-analyses/');
+            setMusicAnalyses(response.data);
+        } catch (error) {
+            console.error('Error cargando análisis de música:', error);
+        }
+    };
 
+    useEffect(() => {
+        if (activeTab === 'music-analyses') {
+            loadMusicAnalyses();
+        }
+    }, [activeTab]);
+
+    // Renderizado para Análisis de Música
+    const renderMusicAnalyses = () => {
         return (
-            <div className="crud-container">
-                <h2>Gestión de Análisis</h2>
-                
-                {/* Tabla de análisis */}
+            <div className="crud-section">
+                <h2>Análisis de Música</h2>
                 <div className="table-container">
                     <table className="data-table crud-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Pista</th>
-                                <th>Fecha de Análisis</th>
+                                <th>Usuario</th>
+                                <th>Título</th>
+                                <th>Artista</th>
+                                <th>Género</th>
+                                <th>Mood</th>
+                                <th>Confianza</th>
+                                <th>Fecha</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {analyses.map(analysis => (
+                            {musicAnalyses.map(analysis => (
                                 <tr key={analysis.id}>
                                     <td>{analysis.id}</td>
-                                    <td>{tracks.find(t => t.id === analysis.track)?.title || analysis.track}</td>
-                                    <td>{formatDate(analysis.analyzed_at)}</td>
+                                    <td>{analysis.user}</td>
+                                    <td>{analysis.title}</td>
+                                    <td>{analysis.artist}</td>
+                                    <td>{analysis.genre || 'Sin clasificar'}</td>
+                                    <td>{analysis.mood || 'Sin clasificar'}</td>
+                                    <td>{(analysis.confidence * 100).toFixed(1)}%</td>
+                                    <td>{formatDate(analysis.created_at)}</td>
                                     <td className="action-buttons">
                                         <button 
                                             className="crud-button view-button"
-                                            onClick={() => alert(JSON.stringify(analysis.details, null, 2))}
+                                            onClick={() => {
+                                                const details = {
+                                                    'Título': analysis.title,
+                                                    'Artista': analysis.artist,
+                                                    'Género': analysis.genre || 'Sin clasificar',
+                                                    'Mood': analysis.mood || 'Sin clasificar',
+                                                    'Confianza': `${(analysis.confidence * 100).toFixed(1)}%`,
+                                                    'Tiempo de procesamiento': analysis.processing_time ? `${analysis.processing_time.toFixed(2)}s` : 'N/A',
+                                                    'Spotify ID': analysis.spotify_id || 'N/A',
+                                                    'Apple Music URL': analysis.apple_music_url || 'N/A'
+                                                };
+                                                alert(JSON.stringify(details, null, 2));
+                                            }}
                                         >
                                             Ver Detalles
                                         </button>
                                         <button 
                                             className="crud-button delete-button"
-                                            onClick={() => handleDeleteAnalysis(analysis.id)}
+                                            onClick={() => handleDeleteMusicAnalysis(analysis.id)}
                                         >
                                             Eliminar
                                         </button>
@@ -1028,6 +1058,19 @@ function Admin() {
         );
     };
 
+    // Función para eliminar análisis de música
+    const handleDeleteMusicAnalysis = async (id) => {
+        if (window.confirm('¿Estás seguro de que deseas eliminar este análisis?')) {
+            try {
+                await api.delete(`/api/music-analyses/${id}/`);
+                setMusicAnalyses(musicAnalyses.filter(analysis => analysis.id !== id));
+            } catch (error) {
+                console.error('Error eliminando análisis:', error);
+                alert('Error al eliminar el análisis');
+            }
+        }
+    };
+
     return (
         <div className="admin-container">
             <div className="admin-header">
@@ -1036,6 +1079,12 @@ function Admin() {
             
             <div className="admin-content">
                 <div className="admin-sidebar">
+                    <button 
+                        className={`sidebar-button ${activeTab === 'inicio' ? 'active' : ''}`}
+                        onClick={() => window.location.href = 'http://localhost:5173/'}
+                    >
+                        Inicio
+                    </button>
                     <button 
                         className={`sidebar-button ${activeTab === 'dashboard' ? 'active' : ''}`}
                         onClick={() => setActiveTab('dashboard')}
@@ -1054,7 +1103,6 @@ function Admin() {
                     >
                         Archivos
                     </button>
-
                     <div className="sidebar-divider"></div>
                     <div className="sidebar-title">Gestión de Contenido</div>
                     
@@ -1083,10 +1131,17 @@ function Admin() {
                         Pistas
                     </button>
                     <button 
-                        className={`sidebar-button ${activeTab === 'analyses' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('analyses')}
+                        className={`sidebar-button ${activeTab === 'music-analyses' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('music-analyses')}
                     >
-                        Análisis
+                        Análisis de Música
+                    </button>
+                    <div className="sidebar-divider"></div>
+                    <button 
+                        className="sidebar-button logout-button"
+                        onClick={() => window.location.href = 'http://localhost:5173/login'}
+                    >
+                        Cerrar Sesión
                     </button>
                 </div>
                 
@@ -1111,6 +1166,7 @@ function Admin() {
                             {activeTab === 'moods' && renderMoodsCRUD()}
                             {activeTab === 'tracks' && renderTracksCRUD()}
                             {activeTab === 'analyses' && renderAnalysesCRUD()}
+                            {activeTab === 'music-analyses' && renderMusicAnalyses()}
                         </>
                     )}
                 </div>

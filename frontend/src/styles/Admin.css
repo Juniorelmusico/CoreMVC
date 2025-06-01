@@ -580,4 +580,16 @@ body, .admin-container {
 }
 .form-success .success-icon {
   font-size: 1.3rem;
+}
+
+.logout-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  transition: background-color 0.3s ease;
+  margin-top: 0.2rem;
+}
+
+.logout-button:hover {
+  background-color: #c82333;
 } 

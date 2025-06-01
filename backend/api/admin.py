@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Artist, Genre, Mood, Track, Analysis
+from .models import Artist, Genre, Mood, Track, Analysis, MusicAnalysis
 
 @admin.register(Artist)
 class ArtistAdmin(admin.ModelAdmin):
@@ -22,7 +22,11 @@ class TrackAdmin(admin.ModelAdmin):
     search_fields = ('title', 'artist__name')
     list_filter = ('genre', 'mood', 'uploaded_at')
 
-@admin.register(Analysis)
-class AnalysisAdmin(admin.ModelAdmin):
-    list_display = ('track', 'created_at')
-    search_fields = ('track__title',)
+
+@admin.register(MusicAnalysis)
+class MusicAnalysisAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'artist', 'user', 'created_at', 'track')
+    search_fields = ('title', 'artist', 'user__username')
+    list_filter = ('user', 'created_at')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)

@@ -61,6 +61,12 @@ urlpatterns = [
     # Incluir router de administración
     path("admin/crud/", include(admin_router.urls)),
     
+    # URLs para análisis de música
+    path('music-analyses/', views.MusicAnalysisListView.as_view(), name='music-analysis-list'),
+    path('music-analyses/<int:pk>/', views.MusicAnalysisDetailView.as_view(), name='music-analysis-detail'),
+    path('music-analyses/<int:pk>/delete/', views.MusicAnalysisDeleteView.as_view(), name='music-analysis-delete'),
+    path('save-music-analysis/', views.save_music_analysis, name='save-music-analysis'),
+    
     # API principal
     path("", include(router.urls)),  # Incluye las rutas generadas por el router
 ]

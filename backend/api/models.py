@@ -234,3 +234,35 @@ class MusicFile(models.Model):
     
     def __str__(self):
         return f"{self.title} - {self.artist}"
+
+
+class MusicAnalysis(models.Model):
+    """
+    Modelo para almacenar análisis de música realizados
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='music_analyses')
+    uploaded_file = models.ForeignKey('UploadedFile', on_delete=models.CASCADE, related_name='music_analyses')
+    track = models.ForeignKey(Track, on_delete=models.SET_NULL, null=True, blank=True, related_name='music_analyses')
+    
+    # Datos del análisis
+    title = models.CharField(max_length=255)
+    artist = models.CharField(max_length=255)
+    genre = models.CharField(max_length=100, null=True, blank=True)
+    mood = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Enlaces de streaming
+    spotify_id = models.CharField(max_length=100, null=True, blank=True)
+    apple_music_url = models.URLField(null=True, blank=True)
+    
+    # Metadatos
+    confidence = models.FloatField(default=0.0)
+    processing_time = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Análisis de {self.title} por {self.artist} ({self.user.username})"
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Análisis de Música'
+        verbose_name_plural = 'Análisis de Música'

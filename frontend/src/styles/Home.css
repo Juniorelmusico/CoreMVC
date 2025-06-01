@@ -471,3 +471,119 @@ body {
 .diff-low {
   background: rgba(25, 226, 196, 0.08);
 }
+
+/* Estilos para el historial de análisis */
+.analysis-history {
+    padding: 2rem;
+    background: #1a1f2e;
+    border-radius: 12px;
+    margin-top: 2rem;
+}
+
+.analysis-history h2 {
+    color: #19e2c4;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.analysis-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.analysis-card {
+    background: #232b43;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #2c3446;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.analysis-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.analysis-header h3 {
+    color: #19e2c4;
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.analysis-date {
+    color: #888;
+    font-size: 0.8em;
+}
+
+.analysis-details {
+    margin-bottom: 1rem;
+}
+
+.analysis-details p {
+    margin: 0.5rem 0;
+    color: #ccc;
+}
+
+.analysis-details b {
+    color: #fff;
+}
+
+.analysis-links {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.streaming-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    text-decoration: none;
+    color: white;
+    font-size: 0.9em;
+    transition: transform 0.2s;
+}
+
+.streaming-link:hover {
+    transform: scale(1.05);
+}
+
+.streaming-link.spotify {
+    background: #1DB954;
+}
+
+.streaming-link.apple {
+    background: #FB2D3F;
+}
+
+.no-analyses {
+    text-align: center;
+    padding: 2rem;
+    color: #888;
+    background: #232b43;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+/* Estilos para el botón de historial */
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tab.active {
+    background: #19e2c4;
+    color: #000;
+}

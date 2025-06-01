@@ -6,8 +6,8 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.models import User
 from .serializers import UserSerializer, NoteSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile, Recognition
-from .serializers import ArtistSerializer, GenreSerializer, MoodSerializer, TrackSerializer, AnalysisSerializer, UploadedFileSerializer, TrackUploadSerializer, MusicFileSerializer
+from .models import Note, Artist, Genre, Mood, Track, Analysis, UploadedFile, MusicFile, Recognition, MusicAnalysis
+from .serializers import ArtistSerializer, GenreSerializer, MoodSerializer, TrackSerializer, AnalysisSerializer, UploadedFileSerializer, TrackUploadSerializer, MusicFileSerializer, MusicAnalysisSerializer
 from .tasks import fingerprint_track, recognize_audio_file, batch_fingerprint_tracks
 from django.core.files.storage import default_storage
 import os
@@ -391,7 +391,6 @@ class FileUploadView(generics.CreateAPIView):
                                     'confidence': 0.95,
                                     'processing_time': processing_time,
                                     'recognition_id': recognition.id,
-                                    'message': f'✅ Reconocida: "{external_info["title"]}" por {external_info["artist"]} (Existe en tu BD)'
                                 }
                             }, status=status.HTTP_201_CREATED)
                         
@@ -474,7 +473,7 @@ class FileUploadView(generics.CreateAPIView):
                     
                     uploaded_file.processing_status = 'error'
                     uploaded_file.save()
-                    
+                
                     return Response({
                         **serializer.data,
                         'recognition_preview': {
@@ -2121,3 +2120,66 @@ def check_audd_quota(request):
             'error': f'Error verificando estado: {str(e)}',
             'message': 'No se pudo verificar el estado de AudD'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MusicAnalysisListView(generics.ListAPIView):
+    """
+    Vista para listar análisis de música del usuario
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = MusicAnalysisSerializer
+    
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return MusicAnalysis.objects.all()
+        return MusicAnalysis.objects.filter(user=self.request.user)
+
+class MusicAnalysisDetailView(generics.RetrieveAPIView):
+    """
+    Vista para ver detalles de un análisis específico
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = MusicAnalysisSerializer
+    
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return MusicAnalysis.objects.all()
+        return MusicAnalysis.objects.filter(user=self.request.user)
+
+class MusicAnalysisDeleteView(generics.DestroyAPIView):
+    """
+    Vista para eliminar un análisis específico
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = MusicAnalysisSerializer
+    
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return MusicAnalysis.objects.all()
+        return MusicAnalysis.objects.filter(user=self.request.user)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_music_analysis(request):
+    """
+    Guarda un análisis de música
+    """
+    try:
+        data = request.data.copy()
+        data['user'] = request.user.id  # Agregar el ID del usuario autenticado
+        
+        print(f"🔍 Datos recibidos para guardar análisis:")
+        print(f"   User ID: {request.user.id}")
+        print(f"   Data: {data}")
+        
+        serializer = MusicAnalysisSerializer(data=data)
+        if serializer.is_valid():
+            analysis = serializer.save(user=request.user)  # Pasar el usuario directamente
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print(f"❌ Errores de validación: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        print(f"❌ Error guardando análisis: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

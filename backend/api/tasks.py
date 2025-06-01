@@ -3,7 +3,6 @@ Tareas de Celery para fingerprinting y reconocimiento de audio usando nuestro se
 """
 from celery import shared_task
 from .models import Track, Analysis, Genre, Mood, UploadedFile, Recognition
-from .dejavu_service import audio_recognition_service
 import os
 import time
 import logging

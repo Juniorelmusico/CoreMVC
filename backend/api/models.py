@@ -59,6 +59,9 @@ class Track(models.Model):
     mood = models.ForeignKey(Mood, on_delete=models.SET_NULL, null=True, related_name='tracks')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     
+    # CAMPOS PARA INTEGRACIÓN CON SERVICIOS EXTERNOS
+    spotify_id = models.CharField(max_length=50, null=True, blank=True, unique=True, help_text="ID de Spotify para vincular con AudD")
+    
     # CAMPOS NUEVOS PARA DEJAVU
     # ID único para vincular con Dejavu (song_name en Dejavu)
     dejavu_song_id = models.CharField(max_length=255, unique=True, null=True, blank=True)

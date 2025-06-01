@@ -151,14 +151,35 @@ def recognize_audio_file(uploaded_file_id):
             is_reference_track=True
         ).select_related('artist', 'genre', 'mood', 'analysis')
         
+        logger.info(f"🎵 Cargando tracks de referencia desde BD...")
+        logger.info(f"📊 Tracks con fingerprint completado encontrados: {completed_tracks.count()}")
+        
         for track in completed_tracks:
             if hasattr(track, 'analysis') and track.analysis.fingerprint_result:
+                fingerprint_features = track.analysis.fingerprint_result.get('features', {})
+                
+                # Validar que las características estén completas
+                required_keys = ['mfcc_mean', 'chroma_mean', 'contrast_mean', 'tempo', 'spectral_centroid_mean']
+                missing_keys = [key for key in required_keys if key not in fingerprint_features]
+                
+                if missing_keys:
+                    logger.warning(f"⚠️  Track {track.id} - {track.title}: faltan características {missing_keys}")
+                    continue
+                
                 reference_tracks.append({
                     'id': track.id,
                     'title': track.title,
                     'artist': track.artist.name,
-                    'fingerprint_features': track.analysis.fingerprint_result.get('features', {})
+                    'fingerprint_features': fingerprint_features
                 })
+                
+                logger.info(f"✅ Track {track.id} añadido: {track.title} - {track.artist.name}")
+                logger.info(f"   Tempo: {fingerprint_features.get('tempo', 'N/A'):.2f} BPM")
+                logger.info(f"   Centroide: {fingerprint_features.get('spectral_centroid_mean', 'N/A'):.2f} Hz")
+            else:
+                logger.warning(f"⚠️  Track {track.id} - {track.title}: sin análisis o fingerprint_result")
+        
+        logger.info(f"📊 Total de tracks de referencia válidos: {len(reference_tracks)}")
 
         if not reference_tracks:
             # No hay tracks de referencia

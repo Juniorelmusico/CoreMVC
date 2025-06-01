@@ -187,6 +187,8 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+AUDD_API_TOKEN = "6c93ce3041c7d38cbe29130ba95d8036"
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 CSRF_TRUSTED_ORIGINS = [

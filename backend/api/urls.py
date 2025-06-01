@@ -31,9 +31,24 @@ urlpatterns = [
     path("recognitions/<int:pk>/", RecognitionDetailView.as_view(), name="recognition-detail"),
     path("recognition-status/<int:file_id>/", recognition_status, name="recognition-status"),
     
+    # NUEVOS ENDPOINTS DE RECONOCIMIENTO SIMPLIFICADO
+    path("easy-recognition/", views.easy_recognition, name="easy-recognition"),
+    path("smart-recognition/", views.smart_recognition, name="smart-recognition"),
+    path("test-audd/", views.test_audd_recognition, name="test-audd"),
+    path("test-acrcloud/", views.test_acrcloud_recognition, name="test-acrcloud"),
+    path("recognition-services/", views.recognition_services_status, name="recognition-services"),
+    path("check-audd-quota/", views.check_audd_quota, name="check-audd-quota"),
+    
+    # ENDPOINTS DE DEMOSTRACIÓN Y PRUEBA REAL
+    path("demo-recognition/", views.demo_recognition_flow, name="demo-recognition"),
+    path("test-real-recognition/", views.test_real_recognition, name="test-real-recognition"),
+    
     # Endpoints de prueba
     path("test-auth/", test_auth, name="test-auth"),
     path("test-no-auth/", test_no_auth, name="test-no-auth"),
+    path("debug-reference-tracks/", views.debug_reference_tracks, name="debug-reference-tracks"),
+    path("test-recognition-debug/", views.test_recognition_debug, name="test-recognition-debug"),
+    path("debug-recognition-step-by-step/", views.debug_recognition_step_by_step, name="debug-recognition-step-by-step"),
     
     # URLs para administradores
     path("admin/dashboard/", views.admin_dashboard, name="admin-dashboard"),

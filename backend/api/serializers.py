@@ -98,7 +98,8 @@ class TrackSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'title', 'artist', 'file', 'duration', 'bpm',
             'genre', 'mood', 'uploaded_at', 'fingerprint_status',
-            'fingerprint_error', 'analysis', 'fingerprints_count'
+            'fingerprint_error', 'analysis', 'fingerprints_count',
+            'spotify_id'
         )
         read_only_fields = ('duration', 'bpm', 'genre', 'mood', 'fingerprint_status', 'fingerprint_error', 'fingerprints_count')
 

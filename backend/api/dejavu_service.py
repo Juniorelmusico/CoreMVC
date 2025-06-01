@@ -100,7 +100,7 @@ class SimpleFingerprint:
     
     def compare_fingerprints(self, features1: Dict, features2: Dict) -> float:
         """
-        Compara dos fingerprints y retorna un score de similitud
+        Compara dos fingerprints y retorna un score de similitud mejorado
         
         Args:
             features1 (Dict): Características del primer audio
@@ -110,7 +110,14 @@ class SimpleFingerprint:
             float: Score de similitud (0-1, donde 1 es idéntico)
         """
         try:
-            # Extraer arrays de características principales
+            # Validar que ambos conjuntos de características existan
+            required_keys = ['mfcc_mean', 'chroma_mean', 'contrast_mean', 'tempo', 'spectral_centroid_mean']
+            for key in required_keys:
+                if key not in features1 or key not in features2:
+                    logger.warning(f"Clave faltante en fingerprints: {key}")
+                    return 0.0
+            
+            # Extraer características principales y validar
             mfcc1 = np.array(features1['mfcc_mean'])
             mfcc2 = np.array(features2['mfcc_mean'])
             
@@ -120,29 +127,69 @@ class SimpleFingerprint:
             contrast1 = np.array(features1['contrast_mean'])
             contrast2 = np.array(features2['contrast_mean'])
             
-            # Calcular similitudes individuales
-            mfcc_similarity = 1 - (np.linalg.norm(mfcc1 - mfcc2) / (np.linalg.norm(mfcc1) + np.linalg.norm(mfcc2)))
-            chroma_similarity = 1 - (np.linalg.norm(chroma1 - chroma2) / (np.linalg.norm(chroma1) + np.linalg.norm(chroma2)))
-            contrast_similarity = 1 - (np.linalg.norm(contrast1 - contrast2) / (np.linalg.norm(contrast1) + np.linalg.norm(contrast2)))
+            # Validar que los arrays tengan el mismo tamaño
+            if mfcc1.shape != mfcc2.shape:
+                logger.warning(f"MFCC shapes no coinciden: {mfcc1.shape} vs {mfcc2.shape}")
+                return 0.0
             
-            # Similitud de tempo
+            if chroma1.shape != chroma2.shape:
+                logger.warning(f"Chroma shapes no coinciden: {chroma1.shape} vs {chroma2.shape}")
+                return 0.0
+                
+            if contrast1.shape != contrast2.shape:
+                logger.warning(f"Contrast shapes no coinciden: {contrast1.shape} vs {contrast2.shape}")
+                return 0.0
+            
+            # Función auxiliar para similitud coseno robusta
+            def cosine_similarity(a, b):
+                if np.allclose(a, 0) or np.allclose(b, 0):
+                    return 0.0
+                norm_a = np.linalg.norm(a)
+                norm_b = np.linalg.norm(b)
+                if norm_a == 0 or norm_b == 0:
+                    return 0.0
+                return np.dot(a, b) / (norm_a * norm_b)
+            
+            # Calcular similitudes usando similitud coseno (más robusta)
+            mfcc_similarity = cosine_similarity(mfcc1, mfcc2)
+            chroma_similarity = cosine_similarity(chroma1, chroma2)
+            contrast_similarity = cosine_similarity(contrast1, contrast2)
+            
+            # Similitud de tempo (más estricta)
             tempo_diff = abs(features1['tempo'] - features2['tempo'])
-            tempo_similarity = 1 - min(tempo_diff / 200.0, 1.0)  # Normalizar por 200 BPM
+            # Considerar tempos similares dentro de un 10% de diferencia
+            tempo_threshold = max(features1['tempo'], features2['tempo']) * 0.1
+            tempo_similarity = max(0.0, 1.0 - (tempo_diff / max(tempo_threshold, 10.0)))
             
-            # Similitud espectral
+            # Similitud espectral (más estricta)
             spectral_diff = abs(features1['spectral_centroid_mean'] - features2['spectral_centroid_mean'])
-            spectral_similarity = 1 - min(spectral_diff / 5000.0, 1.0)  # Normalizar por 5000 Hz
+            # Normalizar por el valor más alto
+            spectral_max = max(features1['spectral_centroid_mean'], features2['spectral_centroid_mean'])
+            spectral_similarity = max(0.0, 1.0 - (spectral_diff / max(spectral_max, 1000.0)))
             
-            # Peso promedio de las similitudes
+            # Calcular similitud total con pesos más balanceados
+            # MFCC sigue siendo el más importante, pero reducimos su peso
             total_similarity = (
-                mfcc_similarity * 0.4 +      # MFCC es más importante
-                chroma_similarity * 0.2 +
-                contrast_similarity * 0.2 +
-                tempo_similarity * 0.1 +
-                spectral_similarity * 0.1
+                mfcc_similarity * 0.35 +      # MFCC reducido
+                chroma_similarity * 0.25 +    # Chroma aumentado
+                contrast_similarity * 0.20 +  # Contrast igual
+                tempo_similarity * 0.10 +     # Tempo igual
+                spectral_similarity * 0.10    # Spectral igual
             )
             
-            return max(0.0, min(1.0, total_similarity))  # Clamp entre 0 y 1
+            # Log de debugging para análisis
+            logger.info(f"🔍 Comparación de fingerprints:")
+            logger.info(f"   MFCC similarity: {mfcc_similarity:.4f}")
+            logger.info(f"   Chroma similarity: {chroma_similarity:.4f}")
+            logger.info(f"   Contrast similarity: {contrast_similarity:.4f}")
+            logger.info(f"   Tempo similarity: {tempo_similarity:.4f} (diff: {tempo_diff:.2f})")
+            logger.info(f"   Spectral similarity: {spectral_similarity:.4f} (diff: {spectral_diff:.2f})")
+            logger.info(f"   🎯 Total similarity: {total_similarity:.4f}")
+            
+            # Asegurar que el resultado esté entre 0 y 1
+            final_similarity = max(0.0, min(1.0, total_similarity))
+            
+            return final_similarity
             
         except Exception as e:
             logger.error(f"Error comparando fingerprints: {str(e)}")
@@ -208,34 +255,74 @@ class AudioRecognitionService:
             Dict: Resultado del reconocimiento
         """
         try:
+            logger.info(f"🎵 Iniciando reconocimiento de audio: {audio_path}")
+            logger.info(f"📊 Tracks de referencia disponibles: {len(reference_tracks)}")
+            
             # Extraer características del audio a reconocer
             query_result = self.fingerprint.extract_features(audio_path)
             
             if not query_result['success']:
+                logger.error(f"❌ Error extrayendo características del query: {query_result.get('error')}")
                 return query_result
             
             query_features = query_result['features']
+            logger.info(f"✅ Características extraídas del query:")
+            logger.info(f"   Tempo: {query_features.get('tempo', 'N/A'):.2f} BPM")
+            logger.info(f"   Centroide espectral: {query_features.get('spectral_centroid_mean', 'N/A'):.2f} Hz")
+            logger.info(f"   Duración: {query_features.get('duration', 'N/A'):.2f} s")
+            
             best_match = None
             best_similarity = 0.0
+            all_similarities = []
             
             # Comparar con todos los tracks de referencia
-            for track in reference_tracks:
+            for i, track in enumerate(reference_tracks):
                 if 'fingerprint_features' not in track:
+                    logger.warning(f"⚠️  Track {track.get('id', 'N/A')} - {track.get('title', 'N/A')} no tiene fingerprint_features")
                     continue
-                    
+                
+                logger.info(f"\n🔍 Comparando con track {i+1}/{len(reference_tracks)}: {track.get('title', 'N/A')} - {track.get('artist', 'N/A')}")
+                
+                # Log de características del track de referencia
+                ref_features = track['fingerprint_features']
+                logger.info(f"   Ref Tempo: {ref_features.get('tempo', 'N/A'):.2f} BPM")
+                logger.info(f"   Ref Centroide: {ref_features.get('spectral_centroid_mean', 'N/A'):.2f} Hz")
+                logger.info(f"   Ref Duración: {ref_features.get('duration', 'N/A'):.2f} s")
+                
                 similarity = self.fingerprint.compare_fingerprints(
                     query_features, 
                     track['fingerprint_features']
                 )
                 
+                all_similarities.append({
+                    'track_id': track['id'],
+                    'title': track['title'],
+                    'artist': track['artist'],
+                    'similarity': similarity
+                })
+                
+                logger.info(f"   📈 Similitud calculada: {similarity:.4f}")
+                
                 if similarity > best_similarity:
                     best_similarity = similarity
                     best_match = track
+                    logger.info(f"   🎯 ¡Nueva mejor coincidencia! Similitud: {similarity:.4f}")
             
-            # Umbral mínimo de similitud para considerar una coincidencia
-            similarity_threshold = 0.7
+            # Ordenar por similitud para mostrar el ranking
+            all_similarities.sort(key=lambda x: x['similarity'], reverse=True)
+            
+            logger.info(f"\n📊 Ranking de similitudes:")
+            for i, sim in enumerate(all_similarities[:5]):  # Top 5
+                logger.info(f"   {i+1}. {sim['title']} - {sim['artist']}: {sim['similarity']:.4f}")
+            
+            # Umbral mínimo de similitud más estricto
+            similarity_threshold = 0.85  # Aumentado de 0.75 a 0.85 para mayor precisión
+            
+            logger.info(f"\n🎯 Mejor similitud: {best_similarity:.4f}")
+            logger.info(f"🎯 Umbral requerido: {similarity_threshold:.4f}")
             
             if best_match and best_similarity >= similarity_threshold:
+                logger.info(f"✅ ¡RECONOCIMIENTO EXITOSO! Track: {best_match['title']} - {best_match['artist']}")
                 return {
                     'success': True,
                     'recognized': True,
@@ -244,16 +331,24 @@ class AudioRecognitionService:
                     'artist': best_match['artist'],
                     'similarity': best_similarity,
                     'confidence': best_similarity,
-                    'query_features': query_features
+                    'query_features': query_features,
+                    'all_similarities': all_similarities[:10]  # Top 10 para análisis
                 }
             else:
+                logger.info(f"❌ No se encontró coincidencia suficiente. Mejor similitud: {best_similarity:.4f} < {similarity_threshold:.4f}")
                 return {
                     'success': True,
                     'recognized': False,
                     'message': 'No se encontró coincidencia',
                     'best_similarity': best_similarity,
                     'threshold': similarity_threshold,
-                    'query_features': query_features
+                    'query_features': query_features,
+                    'all_similarities': all_similarities[:10],  # Top 10 para análisis
+                    'best_match_info': {
+                        'title': best_match['title'] if best_match else None,
+                        'artist': best_match['artist'] if best_match else None,
+                        'similarity': best_similarity
+                    } if best_match else None
                 }
                 
         except Exception as e:

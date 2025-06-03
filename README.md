@@ -1,123 +1,201 @@
-# Melocuore - Music Analysis Platform
+# 🎵 Sistema de Reconocimiento de Música
 
-Melocuore is a powerful music analysis platform designed for DJs and music producers. It provides automatic audio analysis, track management, and a REST API for integration with other applications.
+Un sistema full-stack para el reconocimiento y análisis de música, construido con Django y React.
 
-## Features
+## 🌟 Características Principales
 
-- Audio file upload and management
-- Automatic audio analysis using librosa
-- BPM detection
-- Genre and mood classification
-- REST API for track management
-- User authentication and authorization
-- Artist profiles and track organization
+- 🎯 Reconocimiento de música en tiempo real
+- 🔄 Integración con AudD API
+- 🎨 Interfaz moderna con efectos visuales
+- 📊 Análisis detallado de canciones
+- 🔒 Sistema de autenticación seguro
+- 🎧 Soporte para múltiples formatos de audio
+- 📱 Diseño responsive
 
-## Tech Stack
+## 🛠️ Tecnologías Utilizadas
 
 ### Backend
-- Django 5.0.1
-- Django REST Framework 3.14.0
-- Celery 5.3.6
-- Redis
-- Librosa 0.10.1
-- NumPy 1.26.3
+- Python 3.8+
+- Django 4.2
+- Django REST Framework
+- PostgreSQL
+- AudD API
+- Librosa (procesamiento de audio)
 
 ### Frontend
-- React
-- Material-UI
+- React 18
+- Vite
 - Axios
+- React Router
+- Styled Components
+- Material-UI
 
-## Setup
+## 📋 Requisitos Previos
 
-### Prerequisites
-- Python 3.8+
-- Node.js 14+
-- Redis
+- Python 3.8 o superior
+- Node.js 16 o superior
 - PostgreSQL
+- API Key de AudD
 
-### Backend Setup
-1. Create a virtual environment:
+## 🚀 Instalación
+
+1. **Clonar el repositorio**
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+git clone https://github.com/tu-usuario/music-recognition-system.git
+cd music-recognition-system
 ```
 
-2. Install dependencies:
+2. **Configurar el Backend**
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-4. Run migrations:
+3. **Configurar la Base de Datos**
 ```bash
 python manage.py migrate
+python manage.py createsuperuser
 ```
 
-5. Start Redis:
-```bash
-redis-server
+4. **Configurar Variables de Entorno**
+Crear un archivo `.env` en la carpeta `backend`:
+```env
+DEBUG=True
+SECRET_KEY=tu_secret_key
+DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/nombre_db
+AUDD_API_TOKEN=tu_token_audd
 ```
 
-6. Start Celery worker:
-```bash
-celery -A melocuore worker -l info
-```
-
-7. Run the development server:
-```bash
-python manage.py runserver
-```
-
-### Frontend Setup
-1. Install dependencies:
+5. **Configurar el Frontend**
 ```bash
 cd frontend
 npm install
 ```
 
-2. Start the development server:
+## 🏃‍♂️ Ejecución
+
+1. **Iniciar el Backend**
 ```bash
-npm start
+cd backend
+python manage.py runserver
 ```
 
-## API Endpoints
+2. **Iniciar el Frontend**
+```bash
+cd frontend
+npm run dev
+```
 
-### Authentication
-- POST /api/token/ - Get JWT token
-- POST /api/token/refresh/ - Refresh JWT token
+## 📁 Estructura del Proyecto
 
-### Tracks
-- GET /api/tracks/ - List tracks
-- POST /api/tracks/upload/ - Upload new track
-- GET /api/tracks/{id}/ - Get track details
-- GET /api/tracks/{id}/analysis/ - Get track analysis
+```
+music-recognition-system/
+├── backend/
+│   ├── api/
+│   │   ├── models.py
+│   │   ├── views.py
+│   │   ├── serializers.py
+│   │   └── services/
+│   ├── config/
+│   └── manage.py
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── styles/
+│   └── package.json
+└── README.md
+```
 
-### Artists
-- GET /api/artists/ - List artists
-- POST /api/artists/ - Create artist
-- GET /api/artists/{id}/ - Get artist details
+## 🔍 Funcionalidades Detalladas
 
-### Genres & Moods
-- GET /api/genres/ - List genres
-- GET /api/moods/ - List moods
+### Reconocimiento de Música
+- Subida de archivos de audio
+- Procesamiento en tiempo real
+- Comparación con base de datos local
+- Integración con AudD API
+- Visualización de resultados
 
-## Contributing
+### Gestión de Usuarios
+- Registro y autenticación
+- Perfiles de usuario
+- Historial de reconocimientos
+- Gestión de favoritos
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+### Análisis de Audio
+- Extracción de características
+- Fingerprinting de audio
+- Comparación de similitud
+- Visualización de espectrogramas
 
-## License
+## 🔒 Seguridad
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Autenticación JWT
+- Validación de archivos
+- Protección contra ataques
+- Manejo seguro de API keys
+- Cifrado de datos sensibles
+
+## 🧪 Testing
+
+```bash
+# Backend
+cd backend
+python manage.py test
+
+# Frontend
+cd frontend
+npm test
+```
+
+## 📈 Optimizaciones
+
+- Caché de fingerprints
+- Procesamiento asíncrono
+- Lazy loading
+- Compresión de archivos
+- Optimización de consultas
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir un Pull Request
+
+## 📝 Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para más detalles.
+
+## 👥 Autores
+
+- Tu Nombre - [@tu-usuario](https://github.com/tu-usuario)
+
+## 🙏 Agradecimientos
+
+- AudD API por el servicio de reconocimiento de música
+- La comunidad de Django y React
+- Todos los contribuidores del proyecto
+
+## 📞 Soporte
+
+Para soporte, email tu@email.com o crear un issue en el repositorio.
+
+## 🔄 Actualizaciones Futuras
+
+- [ ] Integración con más servicios de música
+- [ ] Análisis de letras
+- [ ] Recomendaciones personalizadas
+- [ ] Aplicación móvil
+- [ ] API pública
+
+---
+
+⭐️ Si te gusta el proyecto, no olvides darle una estrella en GitHub!
 
 ⌨️ with ❤️ by Junior Espin 
 

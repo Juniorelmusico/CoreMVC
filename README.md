@@ -171,9 +171,6 @@ npm test
 
 Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para más detalles.
 
-## 👥 Autores
-
-- Tu Nombre - [@tu-usuario](https://github.com/tu-usuario)
 
 ## 🙏 Agradecimientos
 
@@ -181,9 +178,7 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.m
 - La comunidad de Django y React
 - Todos los contribuidores del proyecto
 
-## 📞 Soporte
 
-Para soporte, email tu@email.com o crear un issue en el repositorio.
 
 ## 🔄 Actualizaciones Futuras
 
@@ -195,15 +190,12 @@ Para soporte, email tu@email.com o crear un issue en el repositorio.
 
 ---
 
-⭐️ Si te gusta el proyecto, no olvides darle una estrella en GitHub!
-
-⌨️ with ❤️ by Junior Espin 
 
 ## 🎤 Deploy
-https://d4a892c7-6446-4a2d-b9de-cee972a1db3a.e1-us-east-azure.choreoapps.dev
+https://frontend-production-c40a.up.railway.app/login
 
 ## 🎵 Video Youtube
-https://youtu.be/fBV4Kan45R4
+https://www.youtube.com/watch?v=jVEJaF51wqY 
 
 
 
